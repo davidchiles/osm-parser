@@ -10,7 +10,7 @@
 #import "Node.h"
 #import "Way.h"
 #import "Relation.h"
-#import "AQXMLParser.h"
+#import "TBXML.h"
 
 /**
  Any delegate object should implement selectors from this protocol to be aware of parsing 
@@ -49,12 +49,10 @@
  loading the whole file in memory (required when you want to parse .osm files larger XXX megabytes !)
  */
 
-@interface OSMParser : NSObject <AQXMLParserDelegate> {
-	AQXMLParser* parser;
+@interface OSMParser : NSObject {
+	TBXML* parser;
 	id <OSMParserDelegate> delegate;
-	Node* currentNode;
-	Way* currentWay;
-	Relation* currentRelation;
+	Element* currentElement;
 	NSMutableDictionary* tags;
 	BOOL isFirstNode;
 	BOOL isFirstWay;
@@ -66,6 +64,8 @@
 - (id)initWithOSMFile:(NSString*)osmFilePath;
 
 - (id)initWithOSMStream:(NSInputStream*)osmStream;
+
+- (id)initWithOSMData:(NSData *)data;
 
 /** Starts the parsing. */
 -(void) parse;

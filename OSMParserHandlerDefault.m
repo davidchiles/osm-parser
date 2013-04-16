@@ -35,11 +35,6 @@
 	return self;
 }
 
--(void) dealloc {
-	[outputDao release];
-	[super dealloc];
-}
-
 #pragma mark -
 #pragma mark Parser delegate
 -(void) didStartParsingNodes {
@@ -71,7 +66,7 @@
 -(void) onWayFound:(Way *)way {
 	[waysBuffer addObject:way];
 	if ([way.nodesIds count]==0)
-		NSLog(@"WARNING No Node for WAY %@i", way.wayId);
+		NSLog(@"WARNING No Node for WAY %@i", way.elementID);
 	//NSLog(@"Way %i has nodes : %@", way.wayId, way.nodesIds);
 	waysCounter++;
 	if (waysCounter%(bufferMaxSize/20)==0) {

@@ -5,28 +5,25 @@
 //  Created by y0n3l http://www.twitter.com/y0n3l on 1/15/11.
 //  Copyright 2011 __MyCompanyName__. All rights reserved.
 //
+#import "Element.h"
 
 @interface Member : NSObject{
 	NSString* type;
-	NSUInteger ref;
+	int64_t ref;
 	NSString* role;
 }
-@property (readwrite, retain) NSString* type;
-@property (readwrite) NSUInteger ref;
-@property (readwrite, retain) NSString* role;
+@property (nonatomic, strong) NSString* type;
+@property (nonatomic) int64_t ref;
+@property (nonatomic, strong) NSString* role;
 
 @end
 
 
-@interface Relation : NSObject {
-	NSUInteger relationId;
+@interface Relation : Element {
 	NSMutableArray* members;
-	NSDictionary* tags;
 }
 
-@property (readonly)NSMutableArray* members;
-@property (readwrite) NSUInteger relationId;
-@property (readwrite, retain)NSDictionary* tags;
+@property (nonatomic,strong)NSMutableArray* members;
 
 
 @end

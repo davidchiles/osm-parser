@@ -7,23 +7,18 @@
 //
 
 #import <Foundation/Foundation.h>
+#import "Element.h"
 
 /**
  This class describes a Node as defined in a .osm XML file.
  */
-@interface Node : NSObject {
-	NSUInteger nodeId;
+@interface Node : Element {
 	double latitude;
 	double longitude;
-	NSDictionary* tags;
 }
-/** This node id. */
-@property (readwrite)NSUInteger nodeId;
 /** This node latitude. (WGS 84 - SRID 4326) */
-@property (readwrite)double latitude;
+@property (nonatomic)double latitude;
 /** This node longitude. (WGS 84 - SRID 4326) */
-@property (readwrite)double longitude;
-/** OSM tags associated to this node. */
-@property (readwrite, retain)NSDictionary* tags;
+@property (nonatomic)double longitude;
 
 @end

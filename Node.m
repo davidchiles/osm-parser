@@ -11,15 +11,10 @@
 
 @implementation Node
 
-@synthesize nodeId, latitude, longitude, tags;
+@synthesize latitude, longitude;
 
 -(NSString*) description {
-	return [NSString stringWithFormat:@"Node(%i)%f,%f", nodeId, latitude, longitude];
-}
-
--(void) dealloc {
-	[tags release];
-	[super dealloc];
+	return [NSString stringWithFormat:@"Node(%lli)%f,%f", self.elementID, latitude, longitude];
 }
 
 @end

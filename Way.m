@@ -10,7 +10,7 @@
 
 @implementation Way
 
-@synthesize wayId, nodesIds, tags, nodes, length;
+@synthesize nodesIds, nodes, length;
 
 -(id) init {
 	if (self!=[super init])
@@ -57,14 +57,7 @@
 }
 
 -(NSString*) description {
-	return [NSString stringWithFormat:@"Way(%i)%i nodes", wayId, [nodesIds count]];
-}
-
--(void) dealloc {
-	[nodesIds release];
-	[nodes release];
-	[tags release];
-	[super dealloc];
+	return [NSString stringWithFormat:@"Way(%lli)%i nodes", self.elementID, [nodesIds count]];
 }
 
 @end

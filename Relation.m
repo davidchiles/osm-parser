@@ -17,7 +17,7 @@
 
 @implementation Relation
 
-@synthesize relationId, members, tags;
+@synthesize members;
 
 -(id) init {
 	if (self!=[super init]) {
@@ -27,10 +27,5 @@
 	return self;
 }
 
--(void) dealloc {
-	[members release];
-	[tags release];
-	[super dealloc];
-}
 
 @end

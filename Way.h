@@ -7,15 +7,14 @@
 //
 
 #import <Foundation/Foundation.h>
+#import "Element.h"
 
 /**
  This class describes a Way as defined in a .osm XML file. 
  */
-@interface Way : NSObject {
-	NSUInteger wayId;
+@interface Way : Element {
 	NSMutableArray* nodesIds;
 	NSArray* nodes;
-	NSDictionary* tags;
 	NSUInteger length;
 }
 
@@ -30,10 +29,6 @@
 /** Returns the nodeid of the last node of this way. */
 -(NSInteger) lastNodeId;
 
-/** This way id. */
-@property (readwrite) NSUInteger wayId;
-/** Tags associated with this way. */
-@property (readwrite, retain)NSDictionary* tags;
 @property (readonly)NSMutableArray* nodesIds;
 @property (readwrite, retain)NSArray* nodes;
 
