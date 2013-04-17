@@ -63,8 +63,6 @@
 
 - (id)initWithOSMFile:(NSString*)osmFilePath;
 
-- (id)initWithOSMStream:(NSInputStream*)osmStream;
-
 - (id)initWithOSMData:(NSData *)data;
 
 /** Starts the parsing. */

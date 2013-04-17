@@ -13,5 +13,15 @@
 
 @property (nonatomic,strong) NSDictionary * tags;
 @property (nonatomic) int64_t elementID;
+@property (nonatomic,strong) NSString * user;
+@property (nonatomic) int64_t uid;
+@property (nonatomic) int64_t version;
+@property (nonatomic) int64_t changeset;
+@property (nonatomic,strong) NSString * action;
+@property (nonatomic,strong) NSDate * timeStamp;
+
+-(void)addMetaData:(NSDictionary *)dictionary;
+-(NSString *)formattedDate;
+-(void)addDateWithString:(NSString *)dateString;
 
 @end

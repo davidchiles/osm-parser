@@ -66,7 +66,7 @@
 -(void) onWayFound:(Way *)way {
 	[waysBuffer addObject:way];
 	if ([way.nodesIds count]==0)
-		NSLog(@"WARNING No Node for WAY %@i", way.elementID);
+		NSLog(@"WARNING No Node for WAY %lldi", way.elementID);
 	//NSLog(@"Way %i has nodes : %@", way.wayId, way.nodesIds);
 	waysCounter++;
 	if (waysCounter%(bufferMaxSize/20)==0) {
@@ -114,8 +114,8 @@
 }
 
 -(void) parsingEnd {
-    if (optimizeOnFinished)
-        [outputDao optimizeDB];
+    //if (optimizeOnFinished)
+        //[outputDao optimizeDB];
 }
 
 @end

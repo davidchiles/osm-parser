@@ -24,7 +24,7 @@
 	return self;
 }
 
--(id)initwithOSMData:(NSData *)data
+-(id)initWithOSMData:(NSData *)data
 {
     if (self!=[super init]) {
 		return nil;
@@ -86,12 +86,11 @@
     while (nodeXML) {
         numberOfNodes +=1;
         //int64_t newVersion = [[TBXML valueOfAttributeNamed:@"version" forElement:nodeXML] longLongValue];
-        int64_t osmID = [[TBXML valueOfAttributeNamed:@"id" forElement:nodeXML] longLongValue];
         double lat = [[TBXML valueOfAttributeNamed:@"lat" forElement:nodeXML] doubleValue];
         double lon = [[TBXML valueOfAttributeNamed:@"lon" forElement:nodeXML] doubleValue];
         
         Node* node = [[Node alloc] init];
-        node.elementID = osmID;
+        [node addMetaData:[self attributesWithTBXML:nodeXML]];
 		node.latitude = lat;
 		node.longitude = lon;
         currentElement = node;
@@ -116,7 +115,7 @@
         int64_t osmID = [[TBXML valueOfAttributeNamed:@"id" forElement:wayXML] longLongValue];
         
         Way * way = [[Way alloc] init];
-        way.elementID = osmID;
+        [way addMetaData:[self attributesWithTBXML:wayXML]];
         currentElement = way;
         [self findTags:wayXML];
         [self findNodes:wayXML withWay:way];
@@ -138,10 +137,8 @@
     
     while (relationXML) {
         numberOfRelations +=1;
-        //int64_t newVersion = [[TBXML valueOfAttributeNamed:@"version" forElement:relationXML] longLongValue];
-        int64_t osmID = [[TBXML valueOfAttributeNamed:@"id" forElement:relationXML] longLongValue];
         Relation * relation = [[Relation alloc] init];
-        relation.elementID = osmID;
+        [relation addMetaData:[self attributesWithTBXML:relationXML]];
         
         currentElement = relation;
         [self findTags:relationXML];
@@ -187,6 +184,8 @@
         int64_t nodeId = [[TBXML valueOfAttributeNamed:@"ref" forElement:nd] longLongValue];
 		NSNumber* refAsNumber = [NSNumber numberWithLongLong:nodeId];
 		[way.nodesIds addObject:refAsNumber];
+        nd = [TBXML nextSiblingNamed:@"nd" searchFromElement:nd];
+
     }
 }
 -(void)findMemebers:(TBXMLElement *)xmlElement withRelation:(Relation *)relation
@@ -208,6 +207,17 @@
         memberXML= [TBXML nextSiblingNamed:@"member" searchFromElement:memberXML];
     }
     
+}
+-(NSDictionary *)attributesWithTBXML:(TBXMLElement *)tbxmlElement
+{
+    TBXMLAttribute * attribute =tbxmlElement->firstAttribute;
+    NSMutableDictionary * attributeDict = [NSMutableDictionary dictionaryWithObject:[NSString stringWithFormat:@"%s" ,attribute->value] forKey:[NSString stringWithFormat:@"%s" ,attribute->name]];
+    while (attribute->next) {
+        attribute = attribute->next;
+        
+        [attributeDict setObject:[NSString stringWithFormat:@"%s" ,attribute->value] forKey:[NSString stringWithFormat:@"%s" ,attribute->name]];
+    }
+    return attributeDict;
 }
 
 //<node id="274026" lat="43.6113906" lon="7.1074235" user="Djam" uid="24982" visible="true" version="2" changeset="3759495" timestamp="2010-01-31T14:18:39Z"/>

@@ -38,11 +38,11 @@
 -(void) addNodes:(NSArray*)nodes;
 
 /** Returns a node from its nodeid. */
--(Node*) getNodeFromID:(NSUInteger)nodeId;
+-(Node*) getNodeFromID:(int64_t)nodeId;
 
 -(NSArray*) getNodesForWay:(Way*)way;
 
--(Way*) getWayWithID:(NSUInteger)wayid;
+-(Way*) getWayWithID:(int64_t)wayid;
 
 -(void) addWays:(NSArray*)ways;
 
@@ -54,15 +54,15 @@
 
 -(NSArray*) getMotorwaysRelationsIds;
 
--(Relation*) getRelationWithID:(NSUInteger) relationid;
+-(Relation*) getRelationWithID:(int64_t) relationid;
 
 -(void) associateNetworkToRoadsDefinitions;
 
--(NSDictionary*) tagsForRelation:(NSInteger) relationId;
+-(NSDictionary*) tagsForRelation:(int64_t) relationId;
 
--(NSDictionary*) tagsForWay:(NSInteger) wayId;
+-(NSDictionary*) tagsForWay:(int64_t) wayId;
 
--(NSArray*) getWaysIdsMembersForRelationWithId:(NSInteger) relationId;
+-(NSArray*) getWaysIdsMembersForRelationWithId:(int64_t) relationId;
 
 #pragma DB normalization
 -(void) populateWaysInfo;
