@@ -67,7 +67,7 @@
 	[waysBuffer addObject:way];
 	if ([way.nodesIds count]==0)
 		NSLog(@"WARNING No Node for WAY %lldi", way.elementID);
-	//NSLog(@"Way %i has nodes : %@", way.wayId, way.nodesIds);
+	//NSLog(@"Way %lld has nodes : %@", way.elementID, way.nodesIds);
 	waysCounter++;
 	if (waysCounter%(bufferMaxSize/20)==0) {
 		[self checkForWaysFlush];

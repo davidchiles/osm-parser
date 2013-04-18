@@ -13,6 +13,10 @@
 #import "Way.h"
 #import "Relation.h"
 
+#import "FMDatabase.h"
+#import "FMResultSet.h"
+#import "FMDatabaseQueue.h"
+
 @interface OSMDAO : NSObject {
 	sqlite3* dbHandle;
 	NSString* filePath;
@@ -21,6 +25,9 @@
 @property (readonly) sqlite3* dbHandle;
 /** The path to the db on the filesystem. */ 
 @property (readonly) NSString* filePath;
+
+@property (nonatomic,strong)FMDatabaseQueue * databaseQueue;
+@property (nonatomic,strong)FMDatabase *database;
 
 /** Inits a new OSMDAO */
 -(id) initWithFilePath:(NSString*)filePath;
@@ -38,7 +45,7 @@
 -(void) addNodes:(NSArray*)nodes;
 
 /** Returns a node from its nodeid. */
--(Node*) getNodeFromID:(int64_t)nodeId;
+-(Node*) getNodeFromID:(int64_t)nodeId withTags:(BOOL)withTags;
 
 -(NSArray*) getNodesForWay:(Way*)way;
 
@@ -58,7 +65,9 @@
 
 -(void) associateNetworkToRoadsDefinitions;
 
--(NSDictionary*) tagsForRelation:(int64_t) relationId;
+-(NSDictionary*) getTagsForElement:(Element *)element;
+
+
 
 -(NSDictionary*) tagsForWay:(int64_t) wayId;
 

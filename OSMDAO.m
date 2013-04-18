@@ -14,11 +14,11 @@
 //#import "GeoTools.h"
 //#import "spatialite.h"
 
+
 @interface OSMDAO (privateAPI)
 -(void) initDB;
 -(BOOL) addNode:(Node*) node;
 -(void) addNodeAsGeom:(Node*)node;
--(Node*) createNodeFromStatement:(sqlite3_stmt*)stmt;
 -(void) addNodesIDsForWay:(Way*)way;
 -(void) updateWayInfoId:(NSInteger)wayInfoId toWaysWithIds:(NSArray*)idsArray;
 
@@ -42,6 +42,8 @@
 @implementation OSMDAO
 
 @synthesize dbHandle, filePath;
+@synthesize databaseQueue;
+@synthesize database;
 
 +(void) initialize {
 	//spatialite_init (1);
@@ -65,6 +67,10 @@
 	if (!exists || (exists && override)) {
 		[self initDB];
 	}
+    close(dbHandle);
+    database = [[FMDatabase alloc] initWithPath:filePath];
+    [database open];
+    //databaseQueue = [FMDatabaseQueue databaseQueueWithPath:filePath];
 	return self;
 	
 }
@@ -88,6 +94,8 @@
 	int returnValue = sqlite3_exec(dbHandle, sql, NULL, NULL, &errMsg);
 	if (returnValue!=SQLITE_OK)
 		NSAssert1(0, @"Error initializing DB. '%s'", sqlite3_errmsg(dbHandle));
+    
+    
 }
 
 /*
@@ -167,65 +175,31 @@
 #pragma mark Nodes operations
 
 -(void) addNodes:(NSArray*)nodes {
-	sqlite3_stmt *stmt;
-	const char *sql = "BEGIN";
-	if(sqlite3_prepare_v2(dbHandle, sql, -1, &stmt, NULL) != SQLITE_OK)
-		NSAssert1(0, @"Error while creating statement. '%s'", sqlite3_errmsg(dbHandle));
-	if(SQLITE_DONE != sqlite3_step(stmt))
-		NSAssert1(0, @"Error while deleting data. '%s'", sqlite3_errmsg(dbHandle));
-	sqlite3_reset(stmt);
+    
+    BOOL success = NO;
+    success = [database beginTransaction];
+    for (int i=0; i<[nodes count];i++) {
+        success = [self addNode:[nodes objectAtIndex:i]];
+    }
+    
+    success = [database commit];
+        
 	
-	//ADD ALL
-	for (int i=0; i<[nodes count];i++) {
-		[self addNode:[nodes objectAtIndex:i]];
-	}
-	//sqlite3_reset(stmt);
-	
-	//COMMIT
-	const char *sql2 = "COMMIT";
-	if(sqlite3_prepare_v2(dbHandle, sql2, -1, &stmt, NULL) != SQLITE_OK)
-		NSAssert1(0, @"Error while creating statement. '%s'", sqlite3_errmsg(dbHandle));
-	if(SQLITE_DONE != sqlite3_step(stmt))
-		NSAssert1(0, @"Error while adding nodes. '%s'", sqlite3_errmsg(dbHandle));
-	sqlite3_finalize(stmt);
 }
 
 -(BOOL) addNode:(Node*) node {
-	sqlite3_stmt *addStmt;
-	BOOL insertOK = NO; 
-	const char *sql = "insert into nodes(nodeid, latitude, longitude) Values(?, ?, ?)";
-	if(sqlite3_prepare_v2(dbHandle, sql, -1, &addStmt, NULL) != SQLITE_OK)
-		NSAssert1(0, @"Error while creating add statement. '%s'", sqlite3_errmsg(dbHandle));
-	sqlite3_bind_int64(addStmt, 1, node.elementID);
-	sqlite3_bind_double(addStmt, 2, node.latitude);
-	sqlite3_bind_double(addStmt, 3, node.longitude);
-	if(SQLITE_DONE != sqlite3_step(addStmt)) {
-		//NSLog(@"Error at node %@", node); 
-		//NSAssert1(0, @"Error while inserting data. '%s'", sqlite3_errmsg(dbHandle));
-	} else 
-		insertOK=YES;
-	sqlite3_finalize(addStmt);
-	
-	if (insertOK && node.tags) {
-		NSArray* keys = [node.tags allKeys];
-		sql = "insert into nodes_tags(nodeid, key, value) Values(?, ?, ?)";
-		if(sqlite3_prepare_v2(dbHandle, sql, -1, &addStmt, NULL) != SQLITE_OK)
-			NSAssert1(0, @"Error while creating add statement. '%s'", sqlite3_errmsg(dbHandle));
-		for (int i=0; i<[keys count]; i++) {
-			NSString* key = (NSString*)[keys objectAtIndex:i];
-			NSString* value= (NSString*) [node.tags objectForKey:key];
-			sqlite3_reset(addStmt);
-			sqlite3_bind_int(addStmt, 1, node.elementID);
-			sqlite3_bind_text(addStmt, 2, [key UTF8String], -1, SQLITE_TRANSIENT);
-			sqlite3_bind_text(addStmt, 3, [value UTF8String], -1, SQLITE_TRANSIENT);
-			
-			if(SQLITE_DONE != sqlite3_step(addStmt))
-				NSAssert1(0, @"Error while inserting data. '%s'", sqlite3_errmsg(dbHandle));
-		}
-		sqlite3_finalize(addStmt);
-	}
-	return insertOK;
-	//[self addNodeAsGeom:node];
+    
+    BOOL insertOK = NO;
+    insertOK = [database executeUpdateWithFormat:@"insert or replace into nodes(id,latitude,longitude,user,uid,changeset,version,timestamp) values (%lld,%f,%f,%@,%lld,%lld,%lld,%@)",node.elementID,node.latitude,node.longitude,node.user,node.uid,node.changeset,node.version,[node formattedDate]];
+    
+    if (insertOK && [node.tags count]) {
+        for (NSString * key in node.tags)
+        {
+            BOOL tagInsertOK = [database executeUpdateWithFormat:@"insert or replace into nodes_tags(node_id,key,value) values (%lld,%@,%@)",node.elementID,key,[node.tags objectForKey:key]];
+            
+        }
+    }
+    return insertOK;
 }
 
 /*
@@ -242,47 +216,71 @@
 }
  */
 
--(Node*) getNodeFromID:(int64_t)nodeId {
-	const char *sql = "SELECT * FROM nodes where nodeid=?";
-	Node* nodeResult = nil;
-	sqlite3_stmt *statement;
-	int returnValue = sqlite3_prepare_v2(dbHandle, sql, -1, &statement, NULL);
-	if (returnValue == SQLITE_OK) {
-		sqlite3_bind_int(statement, 1, nodeId);
-		// We "step" through the results - once for each row.
-		if (sqlite3_step(statement) == SQLITE_ROW) {
-			// The second parameter indicates the column index into the result set.
-			//int primaryKey = sqlite3_column_int(statement, 0);
-			nodeResult = [self createNodeFromStatement:statement];
-		}
-	}
-	sqlite3_finalize(statement);
-	return nodeResult;
+-(Node*) getNodeFromID:(int64_t)nodeId withTags:(BOOL)withTags{
+    
+    Node * node = nil;
+    FMResultSet * result = [database executeQueryWithFormat:@"SELECT * FROM nodes where id=%lld",nodeId];
+    if ([result next]) {
+        node = [[Node alloc] init];
+        node.elementID = [result longLongIntForColumn:@"id"];
+        node.user = [result stringForColumn:@"user"];
+        node.uid = [result longLongIntForColumn:@"uid"];
+        node.version = [result longLongIntForColumn:@"version"];
+        node.changeset = [result stringForColumn:@"changeset"];
+        [node addDateWithString:[result stringForColumn:@"timestamp"]];
+        node.latitude = [result doubleForColumn:@"latitude"];
+        node.longitude = [result doubleForColumn:@"longitude"];
+        node.action = [result stringForColumn:@"action"];
+        
+        if (withTags) {
+            node.tags = [self getTagsForElement:node];
+        }
+        
+    }
+    return node;
+    
+}
+
+-(NSDictionary *)getTagsForElement:(Element *)element
+{
+    NSMutableDictionary * tags = [NSMutableDictionary dictionary];
+    NSString * tableName = @"";
+    NSString * idColumnName = @"";
+    if ([element isKindOfClass:[Node class]]) {
+        tableName = @"nodes_tags";
+        idColumnName = @"node_id";
+    }
+    else if ([element isKindOfClass:[Way class]])
+    {
+        tableName = @"ways_tags";
+        idColumnName = @"way_id";
+    }
+    else if ([element isKindOfClass:[Relation class]])
+    {
+        tableName = @"relations_tags";
+        idColumnName = @"relation_id";
+    }
+    
+    FMResultSet * results = [database executeQueryWithFormat:@"select key, value from %@ where %@=%lld",tableName,idColumnName,element.elementID];
+    while ([results next]) {
+        [tags setObject:[results stringForColumn:@"value"] forKey:[results stringForColumn:@"key"]];
+    }
+    return tags;
+    
 }
 
 -(NSArray*) getNodesForWay:(Way*)way {
 	NSMutableArray* nodes = [NSMutableArray arrayWithCapacity:[way.nodes count]];
 	for (int i=0; i<[way.nodesIds count]; i++)  {
-		NSInteger nodeId = [[way.nodesIds objectAtIndex:i] intValue];
-		Node* n = [self getNodeFromID:nodeId];
+		int64_t nodeId = [[way.nodesIds objectAtIndex:i] longLongValue];
+		Node* n = [self getNodeFromID:nodeId withTags:NO];
 		if (n!=nil)
 			[nodes addObject:n];
 		else
-			NSLog(@"Cannot find node %i for WAY ID %lli tags:%@", nodeId, way.elementID, way.tags);
+			NSLog(@"Cannot find node %lld for WAY ID %lli tags:%@", nodeId, way.elementID, way.tags);
 
 	}
 	return nodes;
-}
-
--(Node*) createNodeFromStatement:(sqlite3_stmt*)stmt {
-	Node* node=[[Node alloc] init];
-	int64_t ID = sqlite3_column_double(stmt, 0);
-	double latitude = sqlite3_column_double(stmt, 1);
-	double longitude = sqlite3_column_double(stmt, 2);
-	node.elementID=ID;
-	node.latitude=latitude;
-	node.longitude=longitude;
-	return node;
 }
 
 #pragma mark -
@@ -331,27 +329,14 @@
 }
 
 -(void) addWays:(NSArray*)ways {
-	sqlite3_stmt *stmt;
-	const char *sql = "BEGIN";
-	if(sqlite3_prepare_v2(dbHandle, sql, -1, &stmt, NULL) != SQLITE_OK)
-		NSAssert1(0, @"Error while creating statement. '%s'", sqlite3_errmsg(dbHandle));
-	if(SQLITE_DONE != sqlite3_step(stmt))
-		NSAssert1(0, @"Error while deleting data. '%s'", sqlite3_errmsg(dbHandle));
-	sqlite3_finalize(stmt);
+	[database beginTransaction];
 	
 	//ADD ALL
 	for (int i=0; i<[ways count];i++) {
 		[self addWay:[ways objectAtIndex:i]];
 	}
-	//sqlite3_reset(stmt);
-	
-	//COMMIT
-	const char *sql2 = "COMMIT";
-	if(sqlite3_prepare_v2(dbHandle, sql2, -1, &stmt, NULL) != SQLITE_OK)
-		NSAssert1(0, @"Error while creating statement. '%s'", sqlite3_errmsg(dbHandle));
-	if(SQLITE_DONE != sqlite3_step(stmt))
-		NSAssert1(0, @"Error while adding accidents. '%s'", sqlite3_errmsg(dbHandle));
-	sqlite3_finalize(stmt);
+    
+    [database commit];
 }
 
 /*
@@ -366,203 +351,55 @@
  756881.706704 4850692.62625)
  */
 -(void) addWay:(Way*)way {
-	NSArray* nodes = way.nodes;
-	if (nodes==nil)
-		nodes = [self getNodesForWay:way];
-	//double wayLength=0;
-	NSString* wayAsWKT = @"LINESTRING(";
-	double previousLocation [2];
-	//previousLocation=NULL;
-	//CLLocation* previousLocation = nil;
-	for (int i=0; i<[nodes count]; i++) {
-		Node* node=[nodes objectAtIndex:i];
-		wayAsWKT = [wayAsWKT stringByAppendingString:[NSString stringWithFormat:@"%f %f", node.longitude, node.latitude]];
-		if (i<[way.nodesIds count]-1)
-			wayAsWKT = [wayAsWKT stringByAppendingString:@", "];
-		//CLLocation* location = [[CLLocation alloc] initWithLatitude:node.latitude longitude:node.longitude];
-		/*if (i>0) {
-			double dist = distance(previousLocation[0], previousLocation[1], node.latitude, node.longitude);
-			wayLength=wayLength+dist;
-		}*/
-		//[previousLocation release];
-		previousLocation[0]= node.latitude;
-		previousLocation[1]= node.longitude;
-	}
-	//[previousLocation release];
-	//NSUInteger wayLengthAsInt = (NSUInteger)wayLength;
-	//NSLog(@"conversion double to int : %f %i", wayLength, wayLengthAsInt); 
-	wayAsWKT = [wayAsWKT stringByAppendingString:@")"];
-	//NSLog(@"wayasWKT is %@", wayAsWKT);
-	//NSString* wayRef=[way.tags objectForKey:@"ref"];
-	//NSString* wayName=[way.tags objectForKey:@"name"];
-	sqlite3_stmt *stmt;
-	if(sqlite3_prepare_v2(dbHandle, "INSERT INTO ways (wayid, ref, name, length, geom) VALUES (?, ?, ?, ?, GeomFromText(?, 4326))", -1, &stmt, NULL) != SQLITE_OK)
-	if(sqlite3_prepare_v2(dbHandle, "INSERT INTO ways (wayid, geom) VALUES (?, GeomFromText(?, 4326))", -1, &stmt, NULL) != SQLITE_OK)
-		NSAssert1(0, @"Error '%s'", sqlite3_errmsg(dbHandle));
-	sqlite3_bind_int(stmt, 1, (int64_t)way.elementID);
-	//sqlite3_bind_text(stmt, 2, [wayRef UTF8String], -1, SQLITE_TRANSIENT);
-	//sqlite3_bind_text(stmt, 3, [wayName UTF8String], -1, SQLITE_TRANSIENT);
-	//sqlite3_bind_int(stmt, 4, wayLengthAsInt);
-	sqlite3_bind_text(stmt, 2, [wayAsWKT UTF8String], -1, SQLITE_TRANSIENT);
-    int stepResult  = sqlite3_step(stmt);  
-	if(stepResult != SQLITE_DONE) {
-        if (stepResult==SQLITE_CONSTRAINT)
-            NSLog(@"way %lld already in DB", way.elementID);
-        else 
-            NSAssert1(0, @"Error while inserting data. '%s'", sqlite3_errmsg(dbHandle));
-    }
-	sqlite3_finalize(stmt);
+    
+    BOOL insertOK = NO;
+    insertOK = [database executeUpdateWithFormat:@"insert or replace into ways(id,user,uid,changeset,version,timestamp) values (%lld,%@,%lld,%lld,%lld,%@)",way.elementID,way.user,way.uid,way.changeset,way.version,[way formattedDate]];
+    
 	
 	[self addNodesIDsForWay:way];	
-	if (way.tags) {
-		sqlite3_stmt *addStmt;
-		NSArray* keys = [way.tags allKeys];
-		char* sql = "insert into ways_tags(wayid, key, value) Values(?, ?, ?)";
-		if(sqlite3_prepare_v2(dbHandle, sql, -1, &addStmt, NULL) != SQLITE_OK)
-			NSAssert1(0, @"Error while creating add statement. '%s'", sqlite3_errmsg(dbHandle));
-		for (int i=0; i<[keys count]; i++) {
-			NSString* key = (NSString*)[keys objectAtIndex:i];
-			NSString* value= (NSString*) [way.tags objectForKey:key];
-			sqlite3_bind_int(addStmt, 1, way.elementID);
-			sqlite3_bind_text(addStmt, 2, [key UTF8String], -1, SQLITE_TRANSIENT);
-			sqlite3_bind_text(addStmt, 3, [value UTF8String], -1, SQLITE_TRANSIENT);
-			if(SQLITE_DONE != sqlite3_step(addStmt)) {
-                NSAssert1(0, @"Error while inserting data. '%s'", sqlite3_errmsg(dbHandle));
-            }
-			sqlite3_reset(addStmt);
-			
-		}
-		sqlite3_finalize(addStmt);
-	}
+	if (insertOK && [way.tags count]) {
+        for (NSString * key in way.tags)
+        {
+            BOOL tagInsertOK = [database executeUpdateWithFormat:@"insert or replace into ways_tags(way_id,key,value) values (%lld,%@,%@)",way.elementID,key,[way.tags objectForKey:key]];
+            
+        }
+    }
 }
 
 -(void) addNodesIDsForWay:(Way*)way {
-	sqlite3_stmt *addStmt;
-	//NSArray* keys = [way.tags allKeys];
-	char* sql = "insert into ways_nodes(wayid, nodeid) Values(?, ?)";
-	if(sqlite3_prepare_v2(dbHandle, sql, -1, &addStmt, NULL) != SQLITE_OK)
-		NSAssert1(0, @"Error while creating add statement. '%s'", sqlite3_errmsg(dbHandle));
-	//NSUInteger wayId = way.elementID;
-	for (int i=0; i<[way.nodesIds count]; i++) {
-		NSUInteger nodeid= [(NSNumber*)[way.nodesIds objectAtIndex:i] intValue];
-		sqlite3_bind_int(addStmt, 1, way.elementID);
-		sqlite3_bind_int(addStmt, 2, nodeid);
-		if(SQLITE_DONE != sqlite3_step(addStmt))
-			NSAssert1(0, @"Error while inserting data. '%s'", sqlite3_errmsg(dbHandle));
-		sqlite3_reset(addStmt);
+    for (int i=0; i<[way.nodesIds count]; i++) {
+		int64_t nodeid= [(NSNumber*)[way.nodesIds objectAtIndex:i] longLongValue];
+        [database executeUpdateWithFormat:@"insert or replace into ways_nodes(way_id,node_id,local_order) values (%lld,%lld,%d)",way.elementID,nodeid,i];
+		
 	}
-	sqlite3_finalize(addStmt);
-	
 }
-
-/*
--(Way*) createWayFromStatement:(sqlite3_stmt*)stmt {
-	Way* node=[[Node alloc] init];
-	NSUInteger ID = sqlite3_column_double(stmt, 0);
-	double latitude = sqlite3_column_double(stmt, 1);
-	double longitude = sqlite3_column_double(stmt, 2);
-	node.elementID=ID;
-	node.latitude=latitude;
-	node.longitude=longitude;
-	return [node autorelease];
-}*/
 
 #pragma mark -
 #pragma mark Relation Operations
 
 -(void) addRelation:(Relation*) rel {
-	sqlite3_stmt *addStmt;
-	const char *sql = "BEGIN";
-	if(sqlite3_prepare_v2(dbHandle, sql, -1, &addStmt, NULL) != SQLITE_OK)
-		NSAssert1(0, @"Error while creating statement. '%s'", sqlite3_errmsg(dbHandle));
-	if(SQLITE_DONE != sqlite3_step(addStmt))
-		NSAssert1(0, @"Error while deleting data. '%s'", sqlite3_errmsg(dbHandle));
-	sqlite3_finalize(addStmt);
+	[database beginTransaction];
 	
-	sql = "insert into relations(relationid) Values(?)";
-	if(sqlite3_prepare_v2(dbHandle, sql, -1, &addStmt, NULL) != SQLITE_OK)
-		NSAssert1(0, @"Error while creating add statement. '%s'", sqlite3_errmsg(dbHandle));
-	sqlite3_bind_int(addStmt, 1, rel.elementID);
-	if(SQLITE_DONE != sqlite3_step(addStmt))
-		NSAssert1(0, @"Error while inserting data. '%s'", sqlite3_errmsg(dbHandle));
-	sqlite3_finalize(addStmt);
-	
-	sql = "insert into relations_members(relationid, type, ref, role) Values(?, ?, ?, ?)";
-	if(sqlite3_prepare_v2(dbHandle, sql, -1, &addStmt, NULL) != SQLITE_OK)
-		NSAssert1(0, @"Error while creating add statement. '%s'", sqlite3_errmsg(dbHandle));
-	for (int i=0; i<[rel.members count]; i++) {
-		Member* m = (Member*)[rel.members objectAtIndex:i];
-		sqlite3_bind_int(addStmt, 1, rel.elementID);
-		sqlite3_bind_text(addStmt, 2, [m.type UTF8String], -1, SQLITE_TRANSIENT);
-		sqlite3_bind_int(addStmt, 3, m.ref);
-		sqlite3_bind_text(addStmt, 4, [m.role UTF8String], -1, SQLITE_TRANSIENT);
-		
-		if(SQLITE_DONE != sqlite3_step(addStmt))
-			NSAssert1(0, @"Error while inserting data. '%s'", sqlite3_errmsg(dbHandle));
-		sqlite3_reset(addStmt);
-		
-	}
-	sqlite3_finalize(addStmt);
-	
-	if (rel.tags) {
-		NSArray* keys = [rel.tags allKeys];
-		sql = "insert into relations_tags(relationid, key, value) Values(?, ?, ?)";
-		if(sqlite3_prepare_v2(dbHandle, sql, -1, &addStmt, NULL) != SQLITE_OK)
-			NSAssert1(0, @"Error while creating add statement. '%s'", sqlite3_errmsg(dbHandle));
-		for (int i=0; i<[keys count]; i++) {
-			NSString* key = (NSString*)[keys objectAtIndex:i];
-			NSString* value= (NSString*) [rel.tags objectForKey:key];
-			sqlite3_bind_int(addStmt, 1, rel.elementID);
-			sqlite3_bind_text(addStmt, 2, [key UTF8String], -1, SQLITE_TRANSIENT);
-			sqlite3_bind_text(addStmt, 3, [value UTF8String], -1, SQLITE_TRANSIENT);
-			
-			if(SQLITE_DONE != sqlite3_step(addStmt))
-				NSAssert1(0, @"Error while inserting data. '%s'", sqlite3_errmsg(dbHandle));
-			sqlite3_reset(addStmt);
-		}
-		sqlite3_finalize(addStmt);
-		
-	}
-	sql = "COMMIT";
-	if(sqlite3_prepare_v2(dbHandle, sql, -1, &addStmt, NULL) != SQLITE_OK)
-		NSAssert1(0, @"Error while creating statement. '%s'", sqlite3_errmsg(dbHandle));
-	if(SQLITE_DONE != sqlite3_step(addStmt))
-		NSAssert1(0, @"Error while adding accidents. '%s'", sqlite3_errmsg(dbHandle));
-	sqlite3_finalize(addStmt);
-}
-
--(NSDictionary*) tagsForRelation:(int64_t) relationId {
-    sqlite3_stmt *stmt;
-	NSMutableDictionary* tags = [NSMutableDictionary dictionary];
-    const char *sql = "select key, value from relations_tags where relationid=?";
-	if(sqlite3_prepare_v2(dbHandle, sql, -1, &stmt, NULL) != SQLITE_OK)
-        NSAssert1(0, @"Error while creating statement. '%s'", sqlite3_errmsg(dbHandle));
-    sqlite3_bind_int(stmt, 1, (int)relationId);
-    while (sqlite3_step(stmt)==SQLITE_ROW) {
-		NSString* key = [NSString stringWithUTF8String:(char*) sqlite3_column_text(stmt, 0)];
-        NSString* value = [NSString stringWithUTF8String:(char*) sqlite3_column_text(stmt, 1)];
-        [tags setObject:value forKey:key];
+	BOOL insertOK = [database executeUpdateWithFormat:@"insert or replace into relations(id,user,uid,changeset,version,timestamp) values (%lld,%@,%lld,%lld,%lld,%@)",rel.elementID,rel.user,rel.uid,rel.changeset,rel.version,[rel formattedDate]];
+    
+    if (insertOK) {
+        for (int i=0; i<[rel.members count]; i++) {
+            Member* m = (Member*)[rel.members objectAtIndex:i];
+            [database executeUpdateWithFormat:@"insert or replace into relations_members(relation_id,type,ref,role,local_order) values (%lld,%@,%lld,%@,%d)",rel.elementID,m.type,m.ref,m.role,i];
+            
+        }
+        
+        
+        if ([rel.tags count]) {
+            for (NSString * key in rel.tags)
+            {
+                BOOL tagInsertOK = [database executeUpdateWithFormat:@"insert or replace into relations_tags(relation_id,key,value) values (%lld,%@,%@)",rel.elementID,key,[rel.tags objectForKey:key]];
+                
+            }
+        }
     }
-    //sqlite3_errmsg(dbHandle)
-    sqlite3_finalize(stmt);
-    return tags;
-}
-
--(NSDictionary*) tagsForWay:(int64_t) wayId {
-    sqlite3_stmt *stmt;
-	NSMutableDictionary* tags = [NSMutableDictionary dictionary];
-    const char *sql = "select key, value from ways_tags where wayid=?";
-	if(sqlite3_prepare_v2(dbHandle, sql, -1, &stmt, NULL) != SQLITE_OK)
-        NSAssert1(0, @"Error while creating statement. '%s'", sqlite3_errmsg(dbHandle));
-    sqlite3_bind_int(stmt, 1, (int)wayId);
-    while (sqlite3_step(stmt)==SQLITE_ROW) {
-		NSString* key = [NSString stringWithUTF8String:(char*) sqlite3_column_text(stmt, 0)];
-        NSString* value = [NSString stringWithUTF8String:(char*) sqlite3_column_text(stmt, 1)];
-        [tags setObject:value forKey:key];
-    }
-    //sqlite3_errmsg(dbHandle)
-    sqlite3_finalize(stmt);
-    return tags;
+    [database commit];
+    
 }
 
 -(NSArray*) getWaysIdsMembersForRelationWithId:(int64_t) relationId {
@@ -600,49 +437,6 @@
 	//tags should be added as well
 	return relation;
 		
-}
-
-#pragma -
-#pragma -
--(NSInteger) updateOrSaveWayInfoWithName:(NSString*)name andReference:(NSString*)ref {
-    //NSLog(@"Saving %@ %@", ref, name);
-    sqlite3_stmt* stmt;
-    if (name==nil && ref==nil) {
-        if(sqlite3_prepare_v2(dbHandle, "select rowid from ways_info where name IS NULL AND ref IS NULL", -1, &stmt, NULL) != SQLITE_OK)
-            NSAssert1(0, @"Error '%s'", sqlite3_errmsg(dbHandle));
-    } else if (name==nil) {
-        if(sqlite3_prepare_v2(dbHandle, "select rowid from ways_info where name IS NULL AND ref=?", -1, &stmt, NULL) != SQLITE_OK)
-            NSAssert1(0, @"Error '%s'", sqlite3_errmsg(dbHandle));
-        sqlite3_bind_text(stmt, 1, [ref UTF8String], -1, SQLITE_TRANSIENT);
-    } else if (ref==nil) {
-        if(sqlite3_prepare_v2(dbHandle, "select rowid from ways_info where name=? AND ref IS NULL", -1, &stmt, NULL) != SQLITE_OK)
-            NSAssert1(0, @"Error '%s'", sqlite3_errmsg(dbHandle));
-        sqlite3_bind_text(stmt, 1, [name UTF8String], -1, SQLITE_TRANSIENT);
-    } else {
-        if(sqlite3_prepare_v2(dbHandle, "select rowid from ways_info where name=? AND ref=?", -1, &stmt, NULL) != SQLITE_OK)
-            NSAssert1(0, @"Error '%s'", sqlite3_errmsg(dbHandle));
-        sqlite3_bind_text(stmt, 1, [name UTF8String], -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 2, [ref UTF8String], -1, SQLITE_TRANSIENT);
-    }
-    NSInteger wayInfoId = -1;
-	if (sqlite3_step(stmt)==SQLITE_ROW) {
-        wayInfoId = sqlite3_column_int(stmt, 0);
-        sqlite3_finalize(stmt);
-        NSLog(@"%@ %@ already exists as way_info", ref, name);
-    } else {
-        NSLog(@"Saving %@ %@", ref, name);
-        sqlite3_finalize(stmt);
-        //no existing wayinfo
-        if(sqlite3_prepare_v2(dbHandle, "INSERT INTO ways_info (ref, name) VALUES (?, ?)", -1, &stmt, NULL) != SQLITE_OK)
-            NSAssert1(0, @"Error '%s'", sqlite3_errmsg(dbHandle));
-        sqlite3_bind_text(stmt, 1, [ref UTF8String], -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmt, 2, [name UTF8String], -1, SQLITE_TRANSIENT);
-        if(SQLITE_DONE != sqlite3_step(stmt))
-            NSAssert1(0, @"Error while inserting data. '%s'", sqlite3_errmsg(dbHandle));
-        wayInfoId = sqlite3_last_insert_rowid(dbHandle);
-        sqlite3_finalize(stmt);
-    }
-    return wayInfoId;
 }
 
 
@@ -686,78 +480,6 @@
 		return rowid;
 	}
 }*/
-
-#pragma mark -
-#pragma mark Network normalization
--(void) populateWaysInfo {
-    sqlite3_stmt *stmt;
-    // tags the ways with relation tags
-    if(sqlite3_prepare_v2(dbHandle, "select relationid from relations", -1, &stmt, NULL) != SQLITE_OK)
-		NSAssert1(0, @"Error while creating statement. '%s'", sqlite3_errmsg(dbHandle));
-    while (sqlite3_step(stmt)==SQLITE_ROW) {
-        int relationId = sqlite3_column_int(stmt, 0);
-        NSDictionary* tags = [self tagsForRelation:relationId];
-        NSString* ref = [tags objectForKey:@"ref"];
-        NSString* name = [tags objectForKey:@"name"];
-        NSInteger wayInfoId = [self updateOrSaveWayInfoWithName:name andReference:ref];
-        NSArray* members = [self getWaysIdsMembersForRelationWithId:relationId];
-        //NSLog(@"applying %ld to %@", wayInfoId, members);
-        if (![ref isEqualToString:@"E 80"]) { 
-            [self updateWayInfoId:wayInfoId toWaysWithIds:members];
-        }
-    }
-    sqlite3_finalize(stmt);
-    
-    // tags the ways with ways tags
-    if(sqlite3_prepare_v2(dbHandle, "SELECT wayid, key, value FROM ways_tags WHERE key='name' OR key='ref' ORDER BY wayid", -1, &stmt, NULL) != SQLITE_OK)
-		NSAssert1(0, @"Error while creating statement. '%s'", sqlite3_errmsg(dbHandle));
-    NSInteger wayid = -1;
-    NSString* nameTag = nil;
-    NSString* refTag = nil;
-    while (sqlite3_step(stmt)==SQLITE_ROW) {
-        int theWayId = sqlite3_column_int(stmt, 0);
-        //did we change wayId ? or is it the first one ? 
-        if (wayid == -1)
-            wayid = theWayId;
-        
-        if (theWayId!=wayid) {
-            //we are going to change way => save current way ref and name
-            NSInteger wayInfoId = [self updateOrSaveWayInfoWithName:nameTag andReference:refTag];
-            [self updateWayInfoId:wayInfoId toWaysWithIds:[NSArray arrayWithObject:[NSNumber numberWithInteger:wayid]]];
-            wayid = theWayId;
-            nameTag = nil;
-            refTag = nil;
-        }
-        
-        //NSString* theName = nil;
-        //NSString* theRef = nil;
-        NSString* key = [NSString stringWithUTF8String:(char*) sqlite3_column_text(stmt, 1)];
-        NSString* value = [NSString stringWithUTF8String:(char*) sqlite3_column_text(stmt, 2)];
-        if ([key isEqualToString:@"name"])
-            nameTag = value;
-        else if ([key isEqualToString:@"ref"])
-            refTag = value;
-    }
-    //save the last item.
-    if (nameTag!=nil || refTag!=nil) {
-        NSInteger wayInfoId = [self updateOrSaveWayInfoWithName:nameTag andReference:refTag];
-        [self updateWayInfoId:wayInfoId toWaysWithIds:[NSArray arrayWithObject:[NSNumber numberWithInteger:wayid]]];
-    }
-}
-
--(void) updateWayInfoId:(NSInteger)wayInfoId toWaysWithIds:(NSArray*)idsArray {
-    NSString* idsArrayAsSQL = @"";
-    for (int i=0; i<[idsArray count]; i++) {
-        NSNumber* n = [idsArray objectAtIndex:i];
-        BOOL isLast = (i==[idsArray count]-1);
-        idsArrayAsSQL = [idsArrayAsSQL stringByAppendingFormat:@"%@%@", n, (isLast)?@"":@", "];
-    }
-    NSString* sql = [NSString stringWithFormat:@"UPDATE ways SET wayinfoid=%i where wayid IN (%@)", wayInfoId, idsArrayAsSQL];
-    //NSLog(@"request is %@", sql);
-    int returnValue = sqlite3_exec(dbHandle, [sql cStringUsingEncoding:NSUTF8StringEncoding], NULL, NULL, NULL);
-    if (returnValue!=SQLITE_OK)
-        NSAssert1(0, @"Error updating way info. '%s'", sqlite3_errmsg(dbHandle));
-}
 
 
 /*
