@@ -171,6 +171,21 @@
 	return relations;
 }
 
+-(BOOL) shouldReplaceExisitingElementWith:(Element *)newElement
+{
+    FMResultSet * set = [database executeQueryWithFormat:@"select version from %@ where id = %lld",[self tableName:newElement],newElement.elementID];
+    int64_t currentVersion = 0;
+    BOOL result = [set next];
+    if (result) {
+        currentVersion = [set longLongIntForColumn:@"version"];
+    }
+    
+    if (currentVersion < newElement.version) {
+        return YES;
+    }
+    return NO;
+}
+
 #pragma mark -
 #pragma mark Nodes operations
 
@@ -190,15 +205,23 @@
 -(BOOL) addNode:(Node*) node {
     
     BOOL insertOK = NO;
-    insertOK = [database executeUpdateWithFormat:@"insert or replace into nodes(id,latitude,longitude,user,uid,changeset,version,timestamp) values (%lld,%f,%f,%@,%lld,%lld,%lld,%@)",node.elementID,node.latitude,node.longitude,node.user,node.uid,node.changeset,node.version,[node formattedDate]];
     
-    if (insertOK && [node.tags count]) {
-        for (NSString * key in node.tags)
-        {
-            BOOL tagInsertOK = [database executeUpdateWithFormat:@"insert or replace into nodes_tags(node_id,key,value) values (%lld,%@,%@)",node.elementID,key,[node.tags objectForKey:key]];
-            
+    if ([self shouldReplaceExisitingElementWith:node]) {
+        insertOK = [database executeUpdateWithFormat:@"insert or replace into nodes(id,latitude,longitude,user,uid,changeset,version,timestamp) values (%lld,%f,%f,%@,%lld,%lld,%lld,%@)",node.elementID,node.latitude,node.longitude,node.user,node.uid,node.changeset,node.version,[node formattedDate],node.elementID,node.version];
+        
+        if (insertOK && [node.tags count]) {
+            for (NSString * key in node.tags)
+            {
+                [database executeUpdateWithFormat:@"insert or replace into nodes_tags(node_id,key,value) values (%lld,%@,%@)",node.elementID,key,[node.tags objectForKey:key]];
+                
+            }
         }
     }
+    else
+    {
+        insertOK = YES;
+    }
+    
     return insertOK;
 }
 
@@ -238,6 +261,24 @@
         
     }
     return node;
+    
+}
+
+-(NSString *)tableName:(Element *)element
+{
+    NSString * tableName = @"";
+    if ([element isKindOfClass:[Node class]]) {
+        tableName = @"nodes";
+    }
+    else if ([element isKindOfClass:[Way class]])
+    {
+        tableName = @"ways";
+    }
+    else if ([element isKindOfClass:[Relation class]])
+    {
+        tableName = @"relations";
+    }
+    return tableName;
     
 }
 
@@ -353,17 +394,21 @@
 -(void) addWay:(Way*)way {
     
     BOOL insertOK = NO;
-    insertOK = [database executeUpdateWithFormat:@"insert or replace into ways(id,user,uid,changeset,version,timestamp) values (%lld,%@,%lld,%lld,%lld,%@)",way.elementID,way.user,way.uid,way.changeset,way.version,[way formattedDate]];
     
-	
-	[self addNodesIDsForWay:way];	
-	if (insertOK && [way.tags count]) {
-        for (NSString * key in way.tags)
-        {
-            BOOL tagInsertOK = [database executeUpdateWithFormat:@"insert or replace into ways_tags(way_id,key,value) values (%lld,%@,%@)",way.elementID,key,[way.tags objectForKey:key]];
-            
+    if ([self shouldReplaceExisitingElementWith:way]) {
+        insertOK = [database executeUpdateWithFormat:@"insert or replace into ways(id,user,uid,changeset,version,timestamp) values (%lld,%@,%lld,%lld,%lld,%@)",way.elementID,way.user,way.uid,way.changeset,way.version,[way formattedDate]];
+        
+        
+        [self addNodesIDsForWay:way];
+        if (insertOK && [way.tags count]) {
+            for (NSString * key in way.tags)
+            {
+                BOOL tagInsertOK = [database executeUpdateWithFormat:@"insert or replace into ways_tags(way_id,key,value) values (%lld,%@,%@)",way.elementID,key,[way.tags objectForKey:key]];
+                
+            }
         }
     }
+    
 }
 
 -(void) addNodesIDsForWay:(Way*)way {
@@ -378,27 +423,32 @@
 #pragma mark Relation Operations
 
 -(void) addRelation:(Relation*) rel {
-	[database beginTransaction];
 	
-	BOOL insertOK = [database executeUpdateWithFormat:@"insert or replace into relations(id,user,uid,changeset,version,timestamp) values (%lld,%@,%lld,%lld,%lld,%@)",rel.elementID,rel.user,rel.uid,rel.changeset,rel.version,[rel formattedDate]];
+	
     
-    if (insertOK) {
-        for (int i=0; i<[rel.members count]; i++) {
-            Member* m = (Member*)[rel.members objectAtIndex:i];
-            [database executeUpdateWithFormat:@"insert or replace into relations_members(relation_id,type,ref,role,local_order) values (%lld,%@,%lld,%@,%d)",rel.elementID,m.type,m.ref,m.role,i];
-            
-        }
+    if ([self shouldReplaceExisitingElementWith:rel]) {
+        [database beginTransaction];
+        BOOL insertOK = [database executeUpdateWithFormat:@"insert or replace into relations(id,user,uid,changeset,version,timestamp) values (%lld,%@,%lld,%lld,%lld,%@)",rel.elementID,rel.user,rel.uid,rel.changeset,rel.version,[rel formattedDate]];
         
-        
-        if ([rel.tags count]) {
-            for (NSString * key in rel.tags)
-            {
-                BOOL tagInsertOK = [database executeUpdateWithFormat:@"insert or replace into relations_tags(relation_id,key,value) values (%lld,%@,%@)",rel.elementID,key,[rel.tags objectForKey:key]];
+        if (insertOK) {
+            for (int i=0; i<[rel.members count]; i++) {
+                Member* m = (Member*)[rel.members objectAtIndex:i];
+                [database executeUpdateWithFormat:@"insert or replace into relations_members(relation_id,type,ref,role,local_order) values (%lld,%@,%lld,%@,%d)",rel.elementID,m.type,m.ref,m.role,i];
                 
             }
+            
+            
+            if ([rel.tags count]) {
+                for (NSString * key in rel.tags)
+                {
+                    BOOL tagInsertOK = [database executeUpdateWithFormat:@"insert or replace into relations_tags(relation_id,key,value) values (%lld,%@,%@)",rel.elementID,key,[rel.tags objectForKey:key]];
+                    
+                }
+            }
         }
+        [database commit];
     }
-    [database commit];
+	
     
 }
 
