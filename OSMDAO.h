@@ -27,7 +27,7 @@
 @property (readonly) NSString* filePath;
 
 @property (nonatomic,strong)FMDatabaseQueue * databaseQueue;
-@property (nonatomic,strong)FMDatabase *database;
+//@property (nonatomic,strong)FMDatabase *database;
 
 /** Inits a new OSMDAO */
 -(id) initWithFilePath:(NSString*)filePath;

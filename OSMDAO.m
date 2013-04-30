@@ -43,7 +43,7 @@
 
 @synthesize dbHandle, filePath;
 @synthesize databaseQueue;
-@synthesize database;
+//@synthesize database;
 
 +(void) initialize {
 	//spatialite_init (1);
@@ -68,9 +68,9 @@
 		[self initDB];
 	}
     close(dbHandle);
-    database = [[FMDatabase alloc] initWithPath:filePath];
-    [database open];
-    //databaseQueue = [FMDatabaseQueue databaseQueueWithPath:filePath];
+    //database = [[FMDatabase alloc] initWithPath:filePath];
+    //[database open];
+    databaseQueue = [FMDatabaseQueue databaseQueueWithPath:filePath];
 	return self;
 	
 }
@@ -173,17 +173,20 @@
 
 -(BOOL) shouldReplaceExisitingElementWith:(Element *)newElement
 {
-    FMResultSet * set = [database executeQueryWithFormat:@"select version from %@ where id = %lld",[self tableName:newElement],newElement.elementID];
-    int64_t currentVersion = 0;
-    BOOL result = [set next];
-    if (result) {
-        currentVersion = [set longLongIntForColumn:@"version"];
-    }
-    
-    if (currentVersion < newElement.version) {
-        return YES;
-    }
-    return NO;
+    __block BOOL shouldReplace = NO;
+    [databaseQueue inDatabase:^(FMDatabase *db) {
+        FMResultSet * set = [db executeQueryWithFormat:@"select version from %@ where id = %lld",[self tableName:newElement],newElement.elementID];
+        int64_t currentVersion = 0;
+        BOOL result = [set next];
+        if (result) {
+            currentVersion = [set longLongIntForColumn:@"version"];
+        }
+        
+        if (currentVersion < newElement.version) {
+            shouldReplace = YES;
+        }
+    }];
+    return shouldReplace;
 }
 
 #pragma mark -
@@ -191,38 +194,42 @@
 
 -(void) addNodes:(NSArray*)nodes {
     
-    BOOL success = NO;
-    success = [database beginTransaction];
-    for (int i=0; i<[nodes count];i++) {
-        success = [self addNode:[nodes objectAtIndex:i]];
-    }
-    
-    success = [database commit];
+    [databaseQueue inDatabase:^(FMDatabase *db) {
+        BOOL success = NO;
+        success = [db beginTransaction];
+        for (int i=0; i<[nodes count];i++) {
+            success = [self addNode:[nodes objectAtIndex:i]];
+        }
         
-	
+        success = [db commit];
+    }];
 }
 
 -(BOOL) addNode:(Node*) node {
     
-    BOOL insertOK = NO;
+    __block BOOL insertOK = NO;
     
-    if ([self shouldReplaceExisitingElementWith:node]) {
-        insertOK = [database executeUpdateWithFormat:@"insert or replace into nodes(id,latitude,longitude,user,uid,changeset,version,timestamp) values (%lld,%f,%f,%@,%lld,%lld,%lld,%@)",node.elementID,node.latitude,node.longitude,node.user,node.uid,node.changeset,node.version,[node formattedDate],node.elementID,node.version];
-        
-        if (insertOK && [node.tags count]) {
-            for (NSString * key in node.tags)
-            {
-                [database executeUpdateWithFormat:@"insert or replace into nodes_tags(node_id,key,value) values (%lld,%@,%@)",node.elementID,key,[node.tags objectForKey:key]];
-                
+    [databaseQueue inDatabase:^(FMDatabase *db) {
+        if ([self shouldReplaceExisitingElementWith:node]) {
+            insertOK = [db executeUpdateWithFormat:@"insert or replace into nodes(id,latitude,longitude,user,uid,changeset,version,timestamp) values (%lld,%f,%f,%@,%lld,%lld,%lld,%@)",node.elementID,node.latitude,node.longitude,node.user,node.uid,node.changeset,node.version,[node formattedDate],node.elementID,node.version];
+            
+            if (insertOK && [node.tags count]) {
+                for (NSString * key in node.tags)
+                {
+                    [db executeUpdateWithFormat:@"insert or replace into nodes_tags(node_id,key,value) values (%lld,%@,%@)",node.elementID,key,[node.tags objectForKey:key]];
+                    
+                }
             }
         }
-    }
-    else
-    {
-        insertOK = YES;
-    }
+        else
+        {
+            insertOK = YES;
+        }
+    }];
     
     return insertOK;
+    
+    
 }
 
 /*
@@ -241,25 +248,27 @@
 
 -(Node*) getNodeFromID:(int64_t)nodeId withTags:(BOOL)withTags{
     
-    Node * node = nil;
-    FMResultSet * result = [database executeQueryWithFormat:@"SELECT * FROM nodes where id=%lld",nodeId];
-    if ([result next]) {
-        node = [[Node alloc] init];
-        node.elementID = [result longLongIntForColumn:@"id"];
-        node.user = [result stringForColumn:@"user"];
-        node.uid = [result longLongIntForColumn:@"uid"];
-        node.version = [result longLongIntForColumn:@"version"];
-        node.changeset = [result stringForColumn:@"changeset"];
-        [node addDateWithString:[result stringForColumn:@"timestamp"]];
-        node.latitude = [result doubleForColumn:@"latitude"];
-        node.longitude = [result doubleForColumn:@"longitude"];
-        node.action = [result stringForColumn:@"action"];
-        
-        if (withTags) {
-            node.tags = [self getTagsForElement:node];
+    __block Node * node = nil;
+    [databaseQueue inDatabase:^(FMDatabase *db) {
+        FMResultSet * result = [db executeQueryWithFormat:@"SELECT * FROM nodes where id=%lld",nodeId];
+        if ([result next]) {
+            node = [[Node alloc] init];
+            node.elementID = [result longLongIntForColumn:@"id"];
+            node.user = [result stringForColumn:@"user"];
+            node.uid = [result longLongIntForColumn:@"uid"];
+            node.version = [result longLongIntForColumn:@"version"];
+            node.changeset = [result stringForColumn:@"changeset"];
+            [node addDateWithString:[result stringForColumn:@"timestamp"]];
+            node.latitude = [result doubleForColumn:@"latitude"];
+            node.longitude = [result doubleForColumn:@"longitude"];
+            node.action = [result stringForColumn:@"action"];
+            
+            if (withTags) {
+                node.tags = [self getTagsForElement:node];
+            }
         }
-        
-    }
+    }];
+    
     return node;
     
 }
@@ -284,28 +293,33 @@
 
 -(NSDictionary *)getTagsForElement:(Element *)element
 {
-    NSMutableDictionary * tags = [NSMutableDictionary dictionary];
-    NSString * tableName = @"";
-    NSString * idColumnName = @"";
-    if ([element isKindOfClass:[Node class]]) {
-        tableName = @"nodes_tags";
-        idColumnName = @"node_id";
-    }
-    else if ([element isKindOfClass:[Way class]])
-    {
-        tableName = @"ways_tags";
-        idColumnName = @"way_id";
-    }
-    else if ([element isKindOfClass:[Relation class]])
-    {
-        tableName = @"relations_tags";
-        idColumnName = @"relation_id";
-    }
+    __block NSMutableDictionary * tags = [NSMutableDictionary dictionary];
     
-    FMResultSet * results = [database executeQueryWithFormat:@"select key, value from %@ where %@=%lld",tableName,idColumnName,element.elementID];
-    while ([results next]) {
-        [tags setObject:[results stringForColumn:@"value"] forKey:[results stringForColumn:@"key"]];
-    }
+    [databaseQueue inDatabase:^(FMDatabase *db) {
+        NSString * tableName = @"";
+        NSString * idColumnName = @"";
+        if ([element isKindOfClass:[Node class]]) {
+            tableName = @"nodes_tags";
+            idColumnName = @"node_id";
+        }
+        else if ([element isKindOfClass:[Way class]])
+        {
+            tableName = @"ways_tags";
+            idColumnName = @"way_id";
+        }
+        else if ([element isKindOfClass:[Relation class]])
+        {
+            tableName = @"relations_tags";
+            idColumnName = @"relation_id";
+        }
+        
+        FMResultSet * results = [db executeQueryWithFormat:@"select key, value from %@ where %@=%lld",tableName,idColumnName,element.elementID];
+        while ([results next]) {
+            [tags setObject:[results stringForColumn:@"value"] forKey:[results stringForColumn:@"key"]];
+        }
+    }];
+    
+    
     return tags;
     
 }
@@ -370,14 +384,18 @@
 }
 
 -(void) addWays:(NSArray*)ways {
-	[database beginTransaction];
-	
-	//ADD ALL
-	for (int i=0; i<[ways count];i++) {
-		[self addWay:[ways objectAtIndex:i]];
-	}
     
-    [database commit];
+    [databaseQueue inDatabase:^(FMDatabase *db) {
+        [db beginTransaction];
+        
+        //ADD ALL
+        for (int i=0; i<[ways count];i++) {
+            [self addWay:[ways objectAtIndex:i]];
+        }
+        
+        [db commit];
+    }];
+	
 }
 
 /*
@@ -393,30 +411,36 @@
  */
 -(void) addWay:(Way*)way {
     
-    BOOL insertOK = NO;
-    
-    if ([self shouldReplaceExisitingElementWith:way]) {
-        insertOK = [database executeUpdateWithFormat:@"insert or replace into ways(id,user,uid,changeset,version,timestamp) values (%lld,%@,%lld,%lld,%lld,%@)",way.elementID,way.user,way.uid,way.changeset,way.version,[way formattedDate]];
+    [databaseQueue inDatabase:^(FMDatabase *db) {
+        BOOL insertOK = NO;
         
-        
-        [self addNodesIDsForWay:way];
-        if (insertOK && [way.tags count]) {
-            for (NSString * key in way.tags)
-            {
-                BOOL tagInsertOK = [database executeUpdateWithFormat:@"insert or replace into ways_tags(way_id,key,value) values (%lld,%@,%@)",way.elementID,key,[way.tags objectForKey:key]];
-                
+        if ([self shouldReplaceExisitingElementWith:way]) {
+            insertOK = [db executeUpdateWithFormat:@"insert or replace into ways(id,user,uid,changeset,version,timestamp) values (%lld,%@,%lld,%lld,%lld,%@)",way.elementID,way.user,way.uid,way.changeset,way.version,[way formattedDate]];
+            
+            
+            [self addNodesIDsForWay:way];
+            if (insertOK && [way.tags count]) {
+                for (NSString * key in way.tags)
+                {
+                    BOOL tagInsertOK = [db executeUpdateWithFormat:@"insert or replace into ways_tags(way_id,key,value) values (%lld,%@,%@)",way.elementID,key,[way.tags objectForKey:key]];
+                    
+                }
             }
         }
-    }
+    }];
+    
     
 }
 
 -(void) addNodesIDsForWay:(Way*)way {
-    for (int i=0; i<[way.nodesIds count]; i++) {
-		int64_t nodeid= [(NSNumber*)[way.nodesIds objectAtIndex:i] longLongValue];
-        [database executeUpdateWithFormat:@"insert or replace into ways_nodes(way_id,node_id,local_order) values (%lld,%lld,%d)",way.elementID,nodeid,i];
-		
-	}
+    [databaseQueue inDatabase:^(FMDatabase *db) {
+        for (int i=0; i<[way.nodesIds count]; i++) {
+            int64_t nodeid= [(NSNumber*)[way.nodesIds objectAtIndex:i] longLongValue];
+            [db executeUpdateWithFormat:@"insert or replace into ways_nodes(way_id,node_id,local_order) values (%lld,%lld,%d)",way.elementID,nodeid,i];
+            
+        }
+    }];
+    
 }
 
 #pragma mark -
@@ -425,29 +449,30 @@
 -(void) addRelation:(Relation*) rel {
 	
 	
-    
-    if ([self shouldReplaceExisitingElementWith:rel]) {
-        [database beginTransaction];
-        BOOL insertOK = [database executeUpdateWithFormat:@"insert or replace into relations(id,user,uid,changeset,version,timestamp) values (%lld,%@,%lld,%lld,%lld,%@)",rel.elementID,rel.user,rel.uid,rel.changeset,rel.version,[rel formattedDate]];
-        
-        if (insertOK) {
-            for (int i=0; i<[rel.members count]; i++) {
-                Member* m = (Member*)[rel.members objectAtIndex:i];
-                [database executeUpdateWithFormat:@"insert or replace into relations_members(relation_id,type,ref,role,local_order) values (%lld,%@,%lld,%@,%d)",rel.elementID,m.type,m.ref,m.role,i];
-                
-            }
+    [databaseQueue inDatabase:^(FMDatabase *db) {
+        if ([self shouldReplaceExisitingElementWith:rel]) {
+            [db beginTransaction];
+            BOOL insertOK = [db executeUpdateWithFormat:@"insert or replace into relations(id,user,uid,changeset,version,timestamp) values (%lld,%@,%lld,%lld,%lld,%@)",rel.elementID,rel.user,rel.uid,rel.changeset,rel.version,[rel formattedDate]];
             
-            
-            if ([rel.tags count]) {
-                for (NSString * key in rel.tags)
-                {
-                    BOOL tagInsertOK = [database executeUpdateWithFormat:@"insert or replace into relations_tags(relation_id,key,value) values (%lld,%@,%@)",rel.elementID,key,[rel.tags objectForKey:key]];
+            if (insertOK) {
+                for (int i=0; i<[rel.members count]; i++) {
+                    Member* m = (Member*)[rel.members objectAtIndex:i];
+                    [db executeUpdateWithFormat:@"insert or replace into relations_members(relation_id,type,ref,role,local_order) values (%lld,%@,%lld,%@,%d)",rel.elementID,m.type,m.ref,m.role,i];
                     
                 }
+                
+                
+                if ([rel.tags count]) {
+                    for (NSString * key in rel.tags)
+                    {
+                        BOOL tagInsertOK = [db executeUpdateWithFormat:@"insert or replace into relations_tags(relation_id,key,value) values (%lld,%@,%@)",rel.elementID,key,[rel.tags objectForKey:key]];
+                        
+                    }
+                }
             }
+            [db commit];
         }
-        [database commit];
-    }
+    }];
 	
     
 }
