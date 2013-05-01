@@ -197,9 +197,9 @@
             if (shouldUpdate) {
                 success = [db executeUpdate:[OSMDAO sqliteInsertOrReplaceNodeString:node]];
                 if (success) {
-                    NSString * sqlTagsString = [OSMDAO sqliteInsertNodeTagsString:node];
-                    if ([sqlTagsString length]) {
-                        success = [db executeUpdate:sqlTagsString];
+                    for(NSString * osmKey in node.tags)
+                    {
+                        BOOL tagInsertOK = [db executeUpdate:@"insert or replace into nodes_tags(node_id,key,value) values(?,?,?)",[NSNumber numberWithLongLong:node.elementID],osmKey,node.tags[osmKey]];
                     }
                 }
             }
@@ -419,9 +419,9 @@
                     {
                         NSLog(@"ERROR NO Way Nodes");
                     }
-                    NSString * sqlTagsString = [OSMDAO sqliteInsertOrReplaceWayTagsString:way];
-                    if ([sqlTagsString length]) {
-                        success = [db executeUpdate:sqlTagsString];
+                    for(NSString * osmKey in way.tags)
+                    {
+                        BOOL tagInsertOK = [db executeUpdate:@"insert or replace into ways_tags(way_id,key,value) values(?,?,?)",[NSNumber numberWithLongLong:way.elementID],osmKey,way.tags[osmKey]];
                     }
                 }
             }
@@ -448,27 +448,6 @@
 +(NSString *)sqliteInsertOrReplaceWayString:(Way*)way
 {
     return [NSString stringWithFormat:@"insert or replace into ways(id,user,uid,changeset,version,timestamp) values (%lld,\'%@\',%lld,%lld,%lld,\'%@\')",way.elementID,way.user,way.uid,way.changeset,way.version,[way formattedDate]];
-}
-
-+(NSString *)sqliteInsertOrReplaceWayTagsString:(Way*)way
-{
-    NSMutableString * sqlString =nil;
-    if ([way.tags count]) {
-        BOOL first = YES;
-        for (NSString * key in way.tags)
-        {
-            if (first) {
-                sqlString = [NSMutableString stringWithFormat:@"insert or replace into ways_tags select %lld as way_id,\'%@\' as key,\'%@\' as value",way.elementID,key,way.tags[key]];
-            }
-            else{
-                [sqlString appendFormat:@" union select %lld,\'%@\',\'%@\'",way.elementID,key,way.tags[key]];
-                
-            }
-            first = NO;
-            
-        }
-    }
-    return sqlString;
 }
 
 +(NSString *) sqliteInsertOrReplaceWayNodesString:(Way*)way {
@@ -518,7 +497,11 @@
                     
                 }
                 if ([rel.tags count]) {
-                    BOOL tagInsertOK = [db executeUpdate:[OSMDAO sqliteInsertOrReplaceRelationTagsString:rel]];
+                    
+                    for(NSString * osmKey in rel.tags)
+                    {
+                        BOOL tagInsertOK = [db executeUpdate:@"insert or replace into relations_tags(relation_id,key,value) values(?,?,?)",[NSNumber numberWithLongLong:rel.elementID],osmKey,rel.tags[osmKey]];
+                    }
                 }
             }
         }
@@ -535,28 +518,6 @@
 +(NSString *) sqliteInsertOrReplaceRelationString:(Relation *)relation
 {
     return [NSString stringWithFormat:@"insert or replace into relations(id,user,uid,changeset,version,timestamp) values (%lld,\'%@\',%lld,%lld,%lld,\'%@\')",relation.elementID,relation.user,relation.uid,relation.changeset,relation.version,[relation formattedDate]];
-}
-
-+(NSString *) sqliteInsertOrReplaceRelationTagsString:(Relation *)relation
-{
-    NSMutableString * sqlString =nil;
-    if ([relation.tags count]) {
-        BOOL first = YES;
-        for (NSString * key in relation.tags)
-        {
-            if (first) {
-                sqlString = [NSMutableString stringWithFormat:@"insert or replace into relations_tags select %lld as way_id,\'%@\' as key,\'%@\' as value",relation.elementID,key,relation.tags[key]];
-            }
-            else{
-                [sqlString appendFormat:@" union select %lld,\'%@\',\'%@\'",relation.elementID,key,relation.tags[key]];
-                
-            }
-            first = NO;
-            
-        }
-    }
-    return sqlString;
-    
 }
 
 -(NSArray*) getWaysIdsMembersForRelationWithId:(int64_t) relationId {
