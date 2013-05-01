@@ -7,6 +7,7 @@
 //
 
 #import <Foundation/Foundation.h>
+#import <CoreLocation/CoreLocation.h>
 #import "Element.h"
 
 /**
@@ -20,5 +21,7 @@
 @property (nonatomic)double latitude;
 /** This node longitude. (WGS 84 - SRID 4326) */
 @property (nonatomic)double longitude;
+
+-(CLLocationCoordinate2D)coordinate;
 
 @end

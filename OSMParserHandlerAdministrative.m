@@ -24,7 +24,7 @@
 -(void) onRelationFound:(Relation *)relation {
 	if (/*[[relation.tags objectForKey:@"admin_level"] isEqualToString:@"6"] || */
 		[[relation.tags objectForKey:@"boundary"] isEqualToString:@"administrative"])
-		[outputDao addRelation:relation];
+		[self.outputDao addRelation:relation];
 }
 
 @end

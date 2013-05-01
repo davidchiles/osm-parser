@@ -27,7 +27,7 @@
 -(id) initWithOutputFilePath:(NSString*)filePath overrideIfExists:(BOOL)override {
 	if (self!=[super init])
 		return nil;
-	outputDao=[[OSMDAO alloc] initWithFilePath:filePath overrideIfExists:override];
+	self.outputDao=[[OSMDAO alloc] initWithFilePath:filePath overrideIfExists:override];
 	nodesBuffer=[[NSMutableArray alloc] init];
 	waysBuffer=[[NSMutableArray alloc] init];
 	bufferMaxSize=30000;
@@ -76,13 +76,13 @@
 
 -(void) onRelationFound:(Relation *)relation {
 	//NSLog(@"relation found");
-	[outputDao addRelation:relation];
+	[self.outputDao addRelation:relation];
 }
 
 -(BOOL) checkForNodesFlush {
 	if ([nodesBuffer count]!=0) {
 		NSLog(@"parsed %i nodes", nodesCounter);
-		[outputDao addNodes:nodesBuffer];
+		[self.outputDao addNodes:nodesBuffer];
 		[nodesBuffer removeAllObjects];
 		return YES;
 	} else {
@@ -96,11 +96,11 @@
 		NSLog(@"now populating corresponding nodes");
 		for (int i=0; i<[waysBuffer count]; i++) {
 			Way* w =[waysBuffer objectAtIndex:i];
-			NSArray* n =[outputDao getNodesForWay:w];
+			NSArray* n =[self.outputDao getNodesForWay:w];
 			w.nodes=n;
 		}
 		NSLog(@"Nodes populated, now flushing...");
-		[outputDao addWays:waysBuffer];
+		[self.outputDao addWays:waysBuffer];
 		NSLog(@"Flush !");
 		[waysBuffer removeAllObjects];
 		return YES;

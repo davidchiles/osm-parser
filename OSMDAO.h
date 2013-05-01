@@ -17,6 +17,12 @@
 #import "FMResultSet.h"
 #import "FMDatabaseQueue.h"
 
+@protocol OSMDAODelegate <NSObject>
+
+-(void)didFinishSavingElements:(NSArray *)elements;
+
+@end
+
 @interface OSMDAO : NSObject {
 	sqlite3* dbHandle;
 	NSString* filePath;
@@ -25,6 +31,8 @@
 @property (readonly) sqlite3* dbHandle;
 /** The path to the db on the filesystem. */ 
 @property (readonly) NSString* filePath;
+
+@property (nonatomic,strong)id<OSMDAODelegate> delegate;
 
 @property (nonatomic,strong)FMDatabaseQueue * databaseQueue;
 //@property (nonatomic,strong)FMDatabase *database;
@@ -73,10 +81,22 @@
 
 -(NSArray*) getWaysIdsMembersForRelationWithId:(int64_t) relationId;
 
+
++(NSString *) sqliteInsertOrReplaceNodeString:(Node*)node;
++(NSString *) sqliteInsertNodeTagsString:(Node *)node;
++(NSString *) sqliteInsertOrReplaceWayString:(Way*)way;
++(NSString *) sqliteInsertOrReplaceWayTagsString:(Way*)way;
++(NSString *) sqliteInsertOrReplaceWayNodesString:(Way*)way;
++(NSString *) sqliteInsertOrReplaceRelationTagsString:(Relation *)relation;
++(NSString *) sqliteInsertOrReplaceRelationString:(Relation *)relation;
+
++(NSString *)tableName:(Element *)element;
+
 #pragma DB normalization
 -(void) populateWaysInfo;
 
 -(NSInteger) updateOrSaveWayInfoWithName:(NSString*)name andReference:(NSString*)ref;
+
 
 
 /*

@@ -11,10 +11,12 @@
 	NSString* type;
 	int64_t ref;
 	NSString* role;
+    Element * member;
 }
 @property (nonatomic, strong) NSString* type;
 @property (nonatomic) int64_t ref;
 @property (nonatomic, strong) NSString* role;
+@property (nonatomic,strong)Element * member;
 
 @end
 

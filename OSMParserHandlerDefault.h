@@ -18,8 +18,6 @@
  (see bufferMaxSize) to limit the number of db transactions and improve db access time. 
  */
 @interface OSMParserHandlerDefault : NSObject <OSMParserDelegate> {
-	/** The DAO used to store objects created at parsing time. */
-	OSMDAO* outputDao;
 	/** Default is 30000: 30000 nodes should be parsed before flushing to the DB.
 	 This number is divided by 20 to get the limit number of ways before doing the flush for ways. */
 	NSUInteger bufferMaxSize;
@@ -41,6 +39,8 @@
 @property(readwrite) NSUInteger bufferMaxSize;
 
 @property(readwrite) BOOL optimizeOnFinished;
+
+@property (nonatomic,strong) OSMDAO * outputDao;
 
 /**
  Creates a new OSMParserHandlerDefault that will create a spatialite DB at the given output path

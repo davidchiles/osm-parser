@@ -11,7 +11,7 @@
 @interface Element : NSObject
 
 
-@property (nonatomic,strong) NSDictionary * tags;
+@property (nonatomic,strong) NSMutableDictionary * tags;
 @property (nonatomic) int64_t elementID;
 @property (nonatomic,strong) NSString * user;
 @property (nonatomic) int64_t uid;

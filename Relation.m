@@ -10,7 +10,7 @@
 
 @implementation Member
 
-@synthesize type, ref, role;
+@synthesize type, ref, role,member;
 
 @end
 

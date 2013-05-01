@@ -17,4 +17,9 @@
 	return [NSString stringWithFormat:@"Node(%lli)%f,%f", self.elementID, latitude, longitude];
 }
 
+-(CLLocationCoordinate2D)coordinate
+{
+    return CLLocationCoordinate2DMake(self.latitude, self.longitude);
+}
+
 @end

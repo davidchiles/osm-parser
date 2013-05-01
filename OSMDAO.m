@@ -17,7 +17,6 @@
 
 @interface OSMDAO (privateAPI)
 -(void) initDB;
--(BOOL) addNode:(Node*) node;
 -(void) addNodeAsGeom:(Node*)node;
 -(void) addNodesIDsForWay:(Way*)way;
 -(void) updateWayInfoId:(NSInteger)wayInfoId toWaysWithIds:(NSArray*)idsArray;
@@ -43,6 +42,7 @@
 
 @synthesize dbHandle, filePath;
 @synthesize databaseQueue;
+@synthesize delegate;
 //@synthesize database;
 
 +(void) initialize {
@@ -57,7 +57,7 @@
 	//NSString *resPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:@"rNetwork.db"];
 	BOOL exists = [[NSFileManager defaultManager] fileExistsAtPath:resPath];
 	if (exists && override) {
-		[[NSFileManager defaultManager] removeItemAtPath:resPath error:nil];
+		//[[NSFileManager defaultManager] removeItemAtPath:resPath error:nil];
 	}
 	int ret = sqlite3_open_v2 ([resPath cStringUsingEncoding:NSUTF8StringEncoding], &dbHandle, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
 	if (ret != SQLITE_OK)
@@ -175,7 +175,7 @@
 {
     __block BOOL shouldReplace = NO;
     [databaseQueue inDatabase:^(FMDatabase *db) {
-        FMResultSet * set = [db executeQueryWithFormat:@"select version from %@ where id = %lld",[self tableName:newElement],newElement.elementID];
+        FMResultSet * set = [db executeQueryWithFormat:@"select version from %@ where id = %lld",[OSMDAO tableName:newElement],newElement.elementID];
         int64_t currentVersion = 0;
         BOOL result = [set next];
         if (result) {
@@ -198,37 +198,46 @@
         BOOL success = NO;
         success = [db beginTransaction];
         for (int i=0; i<[nodes count];i++) {
-            success = [self addNode:[nodes objectAtIndex:i]];
+            success = [db executeUpdate:[OSMDAO sqliteInsertOrReplaceNodeString:nodes[i]]];
+            if (success) {
+                NSString * sqlTagsString = [OSMDAO sqliteInsertNodeTagsString:nodes[i]];
+                if ([sqlTagsString length]) {
+                    success = [db executeUpdate:sqlTagsString];
+                }
+            }
         }
         
         success = [db commit];
     }];
+    
+    if ([self.delegate respondsToSelector:@selector(didFinishSavingElements:)]) {
+        [self.delegate didFinishSavingElements:nodes];
+    }
 }
 
--(BOOL) addNode:(Node*) node {
-    
-    __block BOOL insertOK = NO;
-    
-    [databaseQueue inDatabase:^(FMDatabase *db) {
-        if ([self shouldReplaceExisitingElementWith:node]) {
-            insertOK = [db executeUpdateWithFormat:@"insert or replace into nodes(id,latitude,longitude,user,uid,changeset,version,timestamp) values (%lld,%f,%f,%@,%lld,%lld,%lld,%@)",node.elementID,node.latitude,node.longitude,node.user,node.uid,node.changeset,node.version,[node formattedDate],node.elementID,node.version];
-            
-            if (insertOK && [node.tags count]) {
-                for (NSString * key in node.tags)
-                {
-                    [db executeUpdateWithFormat:@"insert or replace into nodes_tags(node_id,key,value) values (%lld,%@,%@)",node.elementID,key,[node.tags objectForKey:key]];
-                    
-                }
-            }
-        }
-        else
++(NSString *)sqliteInsertOrReplaceNodeString:(Node*)node
+{
+    return [NSString stringWithFormat:@"insert or replace into nodes(id,latitude,longitude,user,uid,changeset,version,timestamp) values (%lld,%f,%f,\'%@\',%lld,%lld,%lld,\'%@\')",node.elementID,node.latitude,node.longitude,node.user,node.uid,node.changeset,node.version,[node formattedDate]];
+}
++(NSString *)sqliteInsertNodeTagsString:(Node *)node
+{
+    NSMutableString * sqlString =nil;
+    if ([node.tags count]) {
+        BOOL first = YES;
+        for (NSString * key in node.tags)
         {
-            insertOK = YES;
+            if (first) {
+                sqlString = [NSMutableString stringWithFormat:@"insert or replace into nodes_tags select %lld as node_id,\'%@\' as key,\'%@\' as value",node.elementID,key,node.tags[key]];
+            }
+            else{
+                [sqlString appendFormat:@" union select %lld,\'%@\',\'%@\'",node.elementID,key,node.tags[key]];
+                
+            }
+            first = NO;
+            
         }
-    }];
-    
-    return insertOK;
-    
+    }
+    return sqlString;
     
 }
 
@@ -250,7 +259,7 @@
     
     __block Node * node = nil;
     [databaseQueue inDatabase:^(FMDatabase *db) {
-        FMResultSet * result = [db executeQueryWithFormat:@"SELECT * FROM nodes where id=%lld",nodeId];
+        FMResultSet * result = [db executeQueryWithFormat:@"SELECT * FROM nodes where id=%lld limit 1",nodeId];
         if ([result next]) {
             node = [[Node alloc] init];
             node.elementID = [result longLongIntForColumn:@"id"];
@@ -264,16 +273,17 @@
             node.action = [result stringForColumn:@"action"];
             
             if (withTags) {
-                node.tags = [self getTagsForElement:node];
+                node.tags = [[self getTagsForElement:node] mutableCopy];
             }
         }
+        [result close];
     }];
     
     return node;
     
 }
 
--(NSString *)tableName:(Element *)element
++(NSString *)tableName:(Element *)element
 {
     NSString * tableName = @"";
     if ([element isKindOfClass:[Node class]]) {
@@ -386,16 +396,24 @@
 -(void) addWays:(NSArray*)ways {
     
     [databaseQueue inDatabase:^(FMDatabase *db) {
-        [db beginTransaction];
-        
-        //ADD ALL
+        BOOL success = NO;
+        success = [db beginTransaction];
         for (int i=0; i<[ways count];i++) {
-            [self addWay:[ways objectAtIndex:i]];
+            success = [db executeUpdate:[OSMDAO sqliteInsertOrReplaceWayString:ways[i]]];
+            if (success) {
+                success = [db executeUpdate:[OSMDAO sqliteInsertOrReplaceWayNodesString:ways[i]]];
+                NSString * sqlTagsString = [OSMDAO sqliteInsertOrReplaceWayTagsString:ways[i]];
+                if ([sqlTagsString length]) {
+                    success = [db executeUpdate:sqlTagsString];
+                }
+            }
         }
         
-        [db commit];
+        success = [db commit];
     }];
-	
+	if ([self.delegate respondsToSelector:@selector(didFinishSavingElements:)]) {
+        [self.delegate didFinishSavingElements:ways];
+    }
 }
 
 /*
@@ -409,38 +427,50 @@
  756021.000385 4850937.420842,
  756881.706704 4850692.62625)
  */
--(void) addWay:(Way*)way {
-    
-    [databaseQueue inDatabase:^(FMDatabase *db) {
-        BOOL insertOK = NO;
-        
-        if ([self shouldReplaceExisitingElementWith:way]) {
-            insertOK = [db executeUpdateWithFormat:@"insert or replace into ways(id,user,uid,changeset,version,timestamp) values (%lld,%@,%lld,%lld,%lld,%@)",way.elementID,way.user,way.uid,way.changeset,way.version,[way formattedDate]];
-            
-            
-            [self addNodesIDsForWay:way];
-            if (insertOK && [way.tags count]) {
-                for (NSString * key in way.tags)
-                {
-                    BOOL tagInsertOK = [db executeUpdateWithFormat:@"insert or replace into ways_tags(way_id,key,value) values (%lld,%@,%@)",way.elementID,key,[way.tags objectForKey:key]];
-                    
-                }
-            }
-        }
-    }];
-    
-    
++(NSString *)sqliteInsertOrReplaceWayString:(Way*)way
+{
+    return [NSString stringWithFormat:@"insert or replace into ways(id,user,uid,changeset,version,timestamp) values (%lld,\'%@\',%lld,%lld,%lld,\'%@\')",way.elementID,way.user,way.uid,way.changeset,way.version,[way formattedDate]];
 }
 
--(void) addNodesIDsForWay:(Way*)way {
-    [databaseQueue inDatabase:^(FMDatabase *db) {
-        for (int i=0; i<[way.nodesIds count]; i++) {
-            int64_t nodeid= [(NSNumber*)[way.nodesIds objectAtIndex:i] longLongValue];
-            [db executeUpdateWithFormat:@"insert or replace into ways_nodes(way_id,node_id,local_order) values (%lld,%lld,%d)",way.elementID,nodeid,i];
++(NSString *)sqliteInsertOrReplaceWayTagsString:(Way*)way
+{
+    NSMutableString * sqlString =nil;
+    if ([way.tags count]) {
+        BOOL first = YES;
+        for (NSString * key in way.tags)
+        {
+            if (first) {
+                sqlString = [NSMutableString stringWithFormat:@"insert or replace into ways_tags select %lld as way_id,\'%@\' as key,\'%@\' as value",way.elementID,key,way.tags[key]];
+            }
+            else{
+                [sqlString appendFormat:@" union select %lld,\'%@\',\'%@\'",way.elementID,key,way.tags[key]];
+                
+            }
+            first = NO;
             
         }
-    }];
-    
+    }
+    return sqlString;
+}
+
++(NSString *) sqliteInsertOrReplaceWayNodesString:(Way*)way {
+    NSMutableString * sqlString =nil;
+    if ([way.tags count]) {
+        BOOL first = YES;
+        for (int i=0; i<[way.nodesIds count]; i++) {
+            int64_t nodeid= [(NSNumber*)[way.nodesIds objectAtIndex:i] longLongValue];
+            if (first) {
+                sqlString = [NSMutableString stringWithFormat:@"insert or replace into ways_nodes select %lld as way_id,%lld as node_id,%d as local_order",way.elementID,nodeid,i];
+            }
+            else{
+                [sqlString appendFormat:@" union select %lld,%lld,%d",way.elementID,nodeid,i];
+                
+            }
+            first = NO;
+            
+        }
+    }
+    return sqlString;
 }
 
 #pragma mark -
@@ -450,30 +480,53 @@
 	
 	
     [databaseQueue inDatabase:^(FMDatabase *db) {
-        if ([self shouldReplaceExisitingElementWith:rel]) {
-            [db beginTransaction];
-            BOOL insertOK = [db executeUpdateWithFormat:@"insert or replace into relations(id,user,uid,changeset,version,timestamp) values (%lld,%@,%lld,%lld,%lld,%@)",rel.elementID,rel.user,rel.uid,rel.changeset,rel.version,[rel formattedDate]];
-            
-            if (insertOK) {
-                for (int i=0; i<[rel.members count]; i++) {
-                    Member* m = (Member*)[rel.members objectAtIndex:i];
-                    [db executeUpdateWithFormat:@"insert or replace into relations_members(relation_id,type,ref,role,local_order) values (%lld,%@,%lld,%@,%d)",rel.elementID,m.type,m.ref,m.role,i];
-                    
-                }
+        [db beginTransaction];
+        BOOL insertOK = [db executeUpdate:[OSMDAO sqliteInsertOrReplaceRelationString:rel]];
+        
+        if (insertOK) {
+            for (int i=0; i<[rel.members count]; i++) {
+                Member* m = (Member*)[rel.members objectAtIndex:i];
+                [db executeUpdateWithFormat:@"insert or replace into relations_members(relation_id,type,ref,role,local_order) values (%lld,%@,%lld,%@,%d)",rel.elementID,m.type,m.ref,m.role,i];
                 
-                
-                if ([rel.tags count]) {
-                    for (NSString * key in rel.tags)
-                    {
-                        BOOL tagInsertOK = [db executeUpdateWithFormat:@"insert or replace into relations_tags(relation_id,key,value) values (%lld,%@,%@)",rel.elementID,key,[rel.tags objectForKey:key]];
-                        
-                    }
-                }
             }
-            [db commit];
+            if ([rel.tags count]) {
+                BOOL tagInsertOK = [db executeUpdate:[OSMDAO sqliteInsertOrReplaceRelationTagsString:rel]];
+            }
         }
+        [db commit];
     }];
+    
+    if ([self.delegate respondsToSelector:@selector(didFinishSavingElements:)]) {
+        [self.delegate didFinishSavingElements:@[rel]];
+    }
 	
+    
+}
+
++(NSString *) sqliteInsertOrReplaceRelationString:(Relation *)relation
+{
+    return [NSString stringWithFormat:@"insert or replace into relations(id,user,uid,changeset,version,timestamp) values (%lld,%@,%lld,%lld,%lld,%@)",relation.elementID,relation.user,relation.uid,relation.changeset,relation.version,[relation formattedDate]];
+}
+
++(NSString *) sqliteInsertOrReplaceRelationTagsString:(Relation *)relation
+{
+    NSMutableString * sqlString =nil;
+    if ([relation.tags count]) {
+        BOOL first = YES;
+        for (NSString * key in relation.tags)
+        {
+            if (first) {
+                sqlString = [NSMutableString stringWithFormat:@"insert or replace into relations_tags select %lld as way_id,\'%@\' as key,\'%@\' as value",relation.elementID,key,relation.tags[key]];
+            }
+            else{
+                [sqlString appendFormat:@" union select %lld,\'%@\',\'%@\'",relation.elementID,key,relation.tags[key]];
+                
+            }
+            first = NO;
+            
+        }
+    }
+    return sqlString;
     
 }
 

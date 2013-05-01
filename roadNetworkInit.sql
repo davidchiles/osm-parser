@@ -5,6 +5,15 @@
 -- 
 -- SELECT InitSpatialMetaData();
 -- INSERT INTO spatial_ref_sys (srid, auth_name, auth_srid, ref_sys_name, proj4text) VALUES (4326, 'epsg', 4326,'WGS 84', '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs');
+DROP TABLE IF EXISTS nodes;
+DROP TABLE IF EXISTS nodes_tags;
+DROP TABLE IF EXISTS ways;
+DROP TABLE IF EXISTS ways_tags;
+DROP TABLE IF EXISTS ways_nodes;
+DROP TABLE IF EXISTS relations;
+DROP TABLE IF EXISTS relations_members;
+DROP TABLE IF EXISTS relations_tags;
+
 CREATE TABLE nodes (
 	id INTEGER PRIMARY KEY  NOT NULL , 
 	latitude DOUBLE NOT NULL , 
@@ -42,8 +51,8 @@ CREATE TABLE ways_tags (
 
 CREATE TABLE ways_nodes (
 	way_id INTEGER REFERENCES ways ( id ),
-    local_order INTEGER,
     node_id INTEGER REFERENCES nodes ( id ),
+    local_order INTEGER,
     UNIQUE ( way_id, local_order, node_id )
 );
 
