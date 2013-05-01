@@ -12,6 +12,24 @@
 
 @synthesize uid,user,action,version,changeset,elementID;
 
+-(id)init
+{
+    if(self = [super init])
+    {
+        self.tags = [NSMutableDictionary dictionary];
+    }
+    return self;
+}
+
+-(id)initWithDictionary:(NSDictionary *)dictionary
+{
+    if(self = [self init])
+    {
+        [self addMetaData:dictionary];
+    }
+    return self;
+}
+
 -(void)addMetaData:(NSDictionary *)dictionary
 {
     self.elementID = [[dictionary objectForKey:@"id"] longLongValue];

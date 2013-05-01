@@ -20,6 +20,7 @@
 @property (nonatomic,strong) NSString * action;
 @property (nonatomic,strong) NSDate * timeStamp;
 
+-(id)initWithDictionary:(NSDictionary *)dictionary;
 -(void)addMetaData:(NSDictionary *)dictionary;
 -(NSString *)formattedDate;
 -(void)addDateWithString:(NSString *)dateString;

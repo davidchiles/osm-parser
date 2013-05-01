@@ -13,6 +13,13 @@
 
 @synthesize latitude, longitude;
 
+-(void)addMetaData:(NSDictionary *)dictionary
+{
+    [super addMetaData:dictionary];
+    self.latitude = [dictionary[@"latitude"] doubleValue];
+    self.longitude = [dictionary[@"longitude"] doubleValue];
+}
+
 -(NSString*) description {
 	return [NSString stringWithFormat:@"Node(%lli)%f,%f", self.elementID, latitude, longitude];
 }
