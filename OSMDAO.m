@@ -181,15 +181,19 @@
 
 -(void) addNodes:(NSArray*)nodes {
     
+    __block NSMutableArray * newNodes = [NSMutableArray array];
+    __block NSMutableArray * updateNodes = [NSMutableArray array];
     [databaseQueue inDatabase:^(FMDatabase *db) {
         BOOL success = NO;
         success = [db beginTransaction];
         for (int i=0; i<[nodes count];i++) {
             Node * node = nodes[i];
             BOOL shouldUpdate = YES;
+            BOOL alreadyExists = NO;
             FMResultSet * set = [db executeQuery:[self sqliteCurrentVersionString:node]];
             if ([set next]) {
                 int64_t currentVersion = [set longForColumn:@"version"];
+                alreadyExists = (currentVersion > 0);
                 shouldUpdate = (currentVersion < node.version);
             }
             [set close];
@@ -197,10 +201,18 @@
             if (shouldUpdate) {
                 success = [db executeUpdate:[OSMDAO sqliteInsertOrReplaceNodeString:node]];
                 if (success) {
+                    [db executeUpdate:@"DELETE FROM nodes_tags WHERE node_id = ?",[NSNumber numberWithLongLong:node.elementID]];
                     for(NSString * osmKey in node.tags)
                     {
                         BOOL tagInsertOK = [db executeUpdate:@"insert or replace into nodes_tags(node_id,key,value) values(?,?,?)",[NSNumber numberWithLongLong:node.elementID],osmKey,node.tags[osmKey]];
                     }
+                }
+                if (alreadyExists) {
+                    [updateNodes addObject:node];
+                }
+                else
+                {
+                    [newNodes addObject:node];
                 }
             }
             
@@ -211,6 +223,9 @@
     
     if ([self.delegate respondsToSelector:@selector(didFinishSavingElements:)]) {
         [self.delegate didFinishSavingElements:nodes];
+    }
+    if ([self.delegate respondsToSelector:@selector(didFinishSavingNewElements:updatedElements:)]) {
+        [self.delegate didFinishSavingNewElements:newNodes updatedElements:updateNodes];
     }
 }
 
@@ -394,6 +409,8 @@
 
 -(void) addWays:(NSArray*)ways {
     
+    __block NSMutableArray * newWays = [NSMutableArray array];
+    __block NSMutableArray * updateWays = [NSMutableArray array];
     [databaseQueue inDatabase:^(FMDatabase *db) {
         db.logsErrors = YES;
         BOOL success = NO;
@@ -401,9 +418,11 @@
         for (int i=0; i<[ways count];i++) {
             Way * way = ways[i];
             BOOL shouldUpdate = YES;
+            BOOL alreadyExists = NO;
             FMResultSet * set = [db executeQuery:[self sqliteCurrentVersionString:way]];
             if ([set next]) {
                 int64_t currentVersion = [set longForColumn:@"version"];
+                alreadyExists = (currentVersion > 0);
                 shouldUpdate = (currentVersion < way.version);
             }
             [set close];
@@ -411,6 +430,8 @@
             if (shouldUpdate) {
                 success = [db executeUpdate:[OSMDAO sqliteInsertOrReplaceWayString:way]];
                 if (success) {
+                    [db executeUpdate:@"DELETE FROM ways_nodes WHERE way_id = ?",[NSNumber numberWithLongLong:way.elementID]];
+                    [db executeUpdate:@"DELETE FROM ways_tags WHERE way_id = ?",[NSNumber numberWithLongLong:way.elementID]];
                     NSString * sql = [OSMDAO sqliteInsertOrReplaceWayNodesString:way];
                     if ([sql length]) {
                         success = [db executeUpdate:sql];
@@ -423,6 +444,14 @@
                     {
                         BOOL tagInsertOK = [db executeUpdate:@"insert or replace into ways_tags(way_id,key,value) values(?,?,?)",[NSNumber numberWithLongLong:way.elementID],osmKey,way.tags[osmKey]];
                     }
+                    
+                    if (alreadyExists) {
+                        [updateWays addObject:way];
+                    }
+                    else
+                    {
+                        [newWays addObject: way];
+                    }
                 }
             }
         }
@@ -431,6 +460,9 @@
     }];
 	if ([self.delegate respondsToSelector:@selector(didFinishSavingElements:)]) {
         [self.delegate didFinishSavingElements:ways];
+    }
+    if ([self.delegate respondsToSelector:@selector(didFinishSavingNewElements:updatedElements:)]) {
+        [self.delegate didFinishSavingNewElements:newWays updatedElements:updateWays];
     }
 }
 
@@ -475,15 +507,17 @@
 
 -(void) addRelation:(Relation*) rel {
 	
-	
+	__block BOOL alreadyExists = NO;
     [databaseQueue inDatabase:^(FMDatabase *db) {
         db.logsErrors = YES;
         [db beginTransaction];
         
         BOOL shouldUpdate = YES;
+        
         FMResultSet * set = [db executeQuery:[self sqliteCurrentVersionString:rel]];
         if ([set next]) {
             int64_t currentVersion = [set longForColumn:@"version"];
+            alreadyExists = (currentVersion > 0);
             shouldUpdate = (currentVersion < rel.version);
         }
         [set close];
@@ -491,6 +525,9 @@
             BOOL insertOK = [db executeUpdate:[OSMDAO sqliteInsertOrReplaceRelationString:rel]];
             
             if (insertOK) {
+                [db executeUpdate:@"DELETE FROM relations_members WHERE relation_id = ?",[NSNumber numberWithLongLong:rel.elementID]];
+                [db executeUpdate:@"DELETE FROM relations_tags WHERE relation_id = ?",[NSNumber numberWithLongLong:rel.elementID]];
+                
                 for (int i=0; i<[rel.members count]; i++) {     
                     Member* m = (Member*)[rel.members objectAtIndex:i];
                     [db executeUpdate:@"insert or replace into relations_members(relation_id,type,ref,role,local_order) values (?,?,?,?,?)",[NSNumber numberWithLongLong:rel.elementID],m.type,[NSNumber numberWithLongLong:m.ref],m.role,[NSNumber numberWithInt:i]];
@@ -510,6 +547,16 @@
     
     if ([self.delegate respondsToSelector:@selector(didFinishSavingElements:)]) {
         [self.delegate didFinishSavingElements:@[rel]];
+    }
+    
+    if ([self.delegate respondsToSelector:@selector(didFinishSavingNewElements:updatedElements:)]) {
+        if (alreadyExists) {
+            [self.delegate didFinishSavingNewElements:nil updatedElements:@[rel]];
+        }
+        else{
+            [self.delegate didFinishSavingNewElements:@[rel] updatedElements:nil];
+        }
+        
     }
 	
     

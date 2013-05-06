@@ -24,5 +24,6 @@
 -(void)addMetaData:(NSDictionary *)dictionary;
 -(NSString *)formattedDate;
 -(void)addDateWithString:(NSString *)dateString;
+-(NSString *)idKeyPrefix;
 
 @end
