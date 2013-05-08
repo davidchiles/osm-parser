@@ -84,10 +84,10 @@
 
 
 +(NSString *) sqliteInsertOrReplaceNodeString:(Node*)node;
-+(NSString *) sqliteInsertNodeTagsString:(Node *)node;
++(NSArray *) sqliteInsertNodeTagsString:(Node *)node;
 +(NSString *) sqliteInsertOrReplaceWayString:(Way*)way;
 +(NSString *) sqliteInsertOrReplaceWayTagsString:(Way*)way;
-+(NSString *) sqliteInsertOrReplaceWayNodesString:(Way*)way;
++(NSArray *) sqliteInsertOrReplaceWayNodesString:(Way*)way;
 +(NSString *) sqliteInsertOrReplaceRelationTagsString:(Relation *)relation;
 +(NSString *) sqliteInsertOrReplaceRelationString:(Relation *)relation;
 

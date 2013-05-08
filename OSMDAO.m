@@ -233,25 +233,17 @@
 {
     return [NSString stringWithFormat:@"insert or replace into nodes(id,latitude,longitude,user,uid,changeset,version,timestamp) values (%lld,%f,%f,\'%@\',%lld,%lld,%lld,\'%@\')",node.elementID,node.latitude,node.longitude,node.user,node.uid,node.changeset,node.version,[node formattedDate]];
 }
-+(NSString *)sqliteInsertNodeTagsString:(Node *)node
++(NSArray *)sqliteInsertNodeTagsString:(Node *)node
 {
-    NSMutableString * sqlString =nil;
+    NSMutableArray * sqlStringArray = [NSMutableArray array];
     if ([node.tags count]) {
-        BOOL first = YES;
         for (NSString * key in node.tags)
         {
-            if (first) {
-                sqlString = [NSMutableString stringWithFormat:@"insert or replace into nodes_tags select %lld as node_id,\'%@\' as key,\'%@\' as value",node.elementID,key,node.tags[key]];
-            }
-            else{
-                [sqlString appendFormat:@" union select %lld,\'%@\',\'%@\'",node.elementID,key,node.tags[key]];
-                
-            }
-            first = NO;
-            
+            NSString *sqlString = [NSString stringWithFormat:@"insert or replace into nodes_tags(node_id,key,value) values(%lld,\'%@\',\'%@\')",node.elementID,key,node.tags[key]];
+            [sqlStringArray addObject:sqlString];
         }
     }
-    return sqlString;
+    return sqlStringArray;
     
 }
 
@@ -432,14 +424,21 @@
                 if (success) {
                     [db executeUpdate:@"DELETE FROM ways_nodes WHERE way_id = ?",[NSNumber numberWithLongLong:way.elementID]];
                     [db executeUpdate:@"DELETE FROM ways_tags WHERE way_id = ?",[NSNumber numberWithLongLong:way.elementID]];
-                    NSString * sql = [OSMDAO sqliteInsertOrReplaceWayNodesString:way];
-                    if ([sql length]) {
-                        success = [db executeUpdate:sql];
-                    }
-                    else
+                    NSArray * sql = [OSMDAO sqliteInsertOrReplaceWayNodesString:way];
+                    
+                    for (NSString * sqlString in sql)
                     {
-                        NSLog(@"ERROR NO Way Nodes");
+                        if ([sqlString length]) {
+                            success = [db executeUpdate:sqlString];
+                        }
+                        else
+                        {
+                            NSLog(@"ERROR NO Way Nodes");
+                        }
                     }
+                    
+                    
+                    
                     for(NSString * osmKey in way.tags)
                     {
                         BOOL tagInsertOK = [db executeUpdate:@"insert or replace into ways_tags(way_id,key,value) values(?,?,?)",[NSNumber numberWithLongLong:way.elementID],osmKey,way.tags[osmKey]];
@@ -482,24 +481,17 @@
     return [NSString stringWithFormat:@"insert or replace into ways(id,user,uid,changeset,version,timestamp) values (%lld,\'%@\',%lld,%lld,%lld,\'%@\')",way.elementID,way.user,way.uid,way.changeset,way.version,[way formattedDate]];
 }
 
-+(NSString *) sqliteInsertOrReplaceWayNodesString:(Way*)way {
-    NSMutableString * sqlString =nil;
++(NSArray *) sqliteInsertOrReplaceWayNodesString:(Way*)way {
+    NSMutableArray * sqlStringArray =[NSMutableArray array];
     if ([way.nodes count]) {
-        BOOL first = YES;
         for (int i=0; i<[way.nodesIds count]; i++) {
             int64_t nodeid= [(NSNumber*)[way.nodesIds objectAtIndex:i] longLongValue];
-            if (first) {
-                sqlString = [NSMutableString stringWithFormat:@"insert or replace into ways_nodes select %lld as way_id,%lld as node_id,%d as local_order",way.elementID,nodeid,i];
-            }
-            else{
-                [sqlString appendFormat:@" union select %lld,%lld,%d",way.elementID,nodeid,i];
-                
-            }
-            first = NO;
+            NSString * sqlString = [NSMutableString stringWithFormat:@"insert or replace into ways_nodes(way_id,node_id,local_order) values(%lld,%lld,%d)",way.elementID,nodeid,i];
+            [sqlStringArray addObject:sqlString];
             
         }
     }
-    return sqlString;
+    return sqlStringArray;
 }
 
 #pragma mark -
