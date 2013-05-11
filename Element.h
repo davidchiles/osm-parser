@@ -25,5 +25,7 @@
 -(NSString *)formattedDate;
 -(void)addDateWithString:(NSString *)dateString;
 -(NSString *)idKeyPrefix;
+-(NSString *)tableName;
+-(NSString *)tagsTableName;
 
 @end

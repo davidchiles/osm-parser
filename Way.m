@@ -60,4 +60,13 @@
 	return [NSString stringWithFormat:@"Way(%lli)%i nodes", self.elementID, [nodesIds count]];
 }
 
+-(NSString *)tableName;
+{
+    return @"ways";
+}
+-(NSString *)tagsTableName
+{
+    return @"ways_tags";
+}
+
 @end

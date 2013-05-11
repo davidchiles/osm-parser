@@ -27,5 +27,14 @@
 	return self;
 }
 
+-(NSString *)tableName
+{
+    return @"relations";
+}
+-(NSString *)tagsTableName
+{
+    return @"relations_tags";
+}
+
 
 @end

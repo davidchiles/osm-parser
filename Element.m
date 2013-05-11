@@ -57,7 +57,14 @@
     NSDateFormatter * formatter = [[NSDateFormatter alloc] init];
     [formatter setDateFormat:@"YYYY-MM-dd'T'HH:mm:ssZ"];
     return formatter;
-
+}
+-(NSString *)tableName
+{
+    return @"";
+}
+-(NSString *)tagsTableName
+{
+    return @"";
 }
 
 @end

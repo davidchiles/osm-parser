@@ -82,13 +82,8 @@
 -(NSArray*) getWaysIdsMembersForRelationWithId:(int64_t) relationId;
 
 
-+(NSString *) sqliteInsertOrReplaceNodeString:(Node*)node;
-+(NSArray *) sqliteInsertNodeTagsString:(Node *)node;
-+(NSString *) sqliteInsertOrReplaceWayString:(Way*)way;
-+(NSString *) sqliteInsertOrReplaceWayTagsString:(Way*)way;
-+(NSArray *) sqliteInsertOrReplaceWayNodesString:(Way*)way;
-+(NSString *) sqliteInsertOrReplaceRelationTagsString:(Relation *)relation;
-+(NSString *) sqliteInsertOrReplaceRelationString:(Relation *)relation;
++(NSArray *)sqliteInsertTagsString:(Element *)element;
++(NSString *)sqliteInsertOrReplaceString:(Element*)element;
 
 +(NSString *)tableName:(Element *)element;
 

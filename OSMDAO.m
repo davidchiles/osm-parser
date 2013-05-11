@@ -199,7 +199,7 @@
             [set close];
             
             if (shouldUpdate) {
-                success = [db executeUpdate:[OSMDAO sqliteInsertOrReplaceNodeString:node]];
+                success = [db executeUpdate:[OSMDAO sqliteInsertOrReplaceString:node]];
                 if (success) {
                     [db executeUpdate:@"DELETE FROM nodes_tags WHERE node_id = ?",[NSNumber numberWithLongLong:node.elementID]];
                     for(NSString * osmKey in node.tags)
@@ -226,17 +226,25 @@
     }
 }
 
-+(NSString *)sqliteInsertOrReplaceNodeString:(Node*)node
++(NSString *)sqliteInsertOrReplaceString:(Element*)element
 {
-    return [NSString stringWithFormat:@"insert or replace into nodes(id,latitude,longitude,user,uid,changeset,version,timestamp) values (%lld,%f,%f,\'%@\',%lld,%lld,%lld,\'%@\')",node.elementID,node.latitude,node.longitude,node.user,node.uid,node.changeset,node.version,[node formattedDate]];
+    if ([element isKindOfClass:[Node class]]) {
+        Node * node = (Node *)element;
+        return [NSString stringWithFormat:@"insert or replace into %@(id,latitude,longitude,user,uid,changeset,version,timestamp) values (%lld,%f,%f,\'%@\',%lld,%lld,%lld,\'%@\')",node.tableName,node.elementID,node.latitude,node.longitude,node.user,node.uid,node.changeset,node.version,[node formattedDate]];
+    }
+    else{
+        return [NSString stringWithFormat:@"insert or replace into %@(id,user,uid,changeset,version,timestamp) values (%lld,\'%@\',%lld,%lld,%lld,\'%@\')",element.tableName,element.elementID,element.user,element.uid,element.changeset,element.version,[element formattedDate]];
+    }
+    
+    
 }
-+(NSArray *)sqliteInsertNodeTagsString:(Node *)node
++(NSArray *)sqliteInsertTagsString:(Element *)element
 {
     NSMutableArray * sqlStringArray = [NSMutableArray array];
-    if ([node.tags count]) {
-        for (NSString * key in node.tags)
+    if ([element.tags count]) {
+        for (NSString * key in element.tags)
         {
-            NSString *sqlString = [NSString stringWithFormat:@"insert or replace into nodes_tags(node_id,key,value) values(%lld,\'%@\',\'%@\')",node.elementID,key,node.tags[key]];
+            NSString *sqlString = [NSString stringWithFormat:@"insert or replace into %@(node_id,key,value) values(%lld,\'%@\',\'%@\')",element.tableName,element.elementID,key,element.tags[key]];
             [sqlStringArray addObject:sqlString];
         }
     }

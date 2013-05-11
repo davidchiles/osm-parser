@@ -29,4 +29,13 @@
     return CLLocationCoordinate2DMake(self.latitude, self.longitude);
 }
 
+-(NSString *)tableName
+{
+    return @"nodes";
+}
+-(NSString *)tagsTableName
+{
+    return @"nodes_tags";
+}
+
 @end
