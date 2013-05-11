@@ -221,9 +221,6 @@
         success = [db commit];
     }];
     
-    if ([self.delegate respondsToSelector:@selector(didFinishSavingElements:)]) {
-        [self.delegate didFinishSavingElements:nodes];
-    }
     if ([self.delegate respondsToSelector:@selector(didFinishSavingNewElements:updatedElements:)]) {
         [self.delegate didFinishSavingNewElements:newNodes updatedElements:updateNodes];
     }
@@ -457,9 +454,7 @@
         
         success = [db commit];
     }];
-	if ([self.delegate respondsToSelector:@selector(didFinishSavingElements:)]) {
-        [self.delegate didFinishSavingElements:ways];
-    }
+	
     if ([self.delegate respondsToSelector:@selector(didFinishSavingNewElements:updatedElements:)]) {
         [self.delegate didFinishSavingNewElements:newWays updatedElements:updateWays];
     }
@@ -537,9 +532,6 @@
         [db commit];
     }];
     
-    if ([self.delegate respondsToSelector:@selector(didFinishSavingElements:)]) {
-        [self.delegate didFinishSavingElements:@[rel]];
-    }
     
     if ([self.delegate respondsToSelector:@selector(didFinishSavingNewElements:updatedElements:)]) {
         if (alreadyExists) {

@@ -19,7 +19,6 @@
 
 @protocol OSMDAODelegate <NSObject>
 
--(void)didFinishSavingElements:(NSArray *)elements;
 -(void)didFinishSavingNewElements:(NSArray *)newElements updatedElements:(NSArray *)updatedElements;
 
 @end
