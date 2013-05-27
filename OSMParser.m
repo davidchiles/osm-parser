@@ -112,7 +112,7 @@
     while (wayXML) {
         numberOfWays +=1;
         //int64_t newVersion = [[TBXML valueOfAttributeNamed:@"version" forElement:wayXML] longLongValue];
-        int64_t osmID = [[TBXML valueOfAttributeNamed:@"id" forElement:wayXML] longLongValue];
+        //int64_t osmID = [[TBXML valueOfAttributeNamed:@"id" forElement:wayXML] longLongValue];
         
         Way * way = [[Way alloc] init];
         [way addMetaData:[self attributesWithTBXML:wayXML]];
@@ -327,5 +327,13 @@
 	}
 }
 */
+-(NSData *) uploadXMLforChangset: (int64_t)changesetNumber
+{
+    return nil;
+}
+-(NSData *) deleteXMLforChangset: (int64_t) changesetNumber
+{
+    return nil;
+}
 
 @end

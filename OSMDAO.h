@@ -63,7 +63,7 @@
 
 -(void) deleteWaysWithIds:(NSArray*)waysIds;
 
--(void) addWay:(Way*)way;
+//-(void) addWay:(Way*)way;
 
 -(void) addRelation:(Relation *)rel;
 
@@ -71,13 +71,13 @@
 
 -(Relation*) getRelationWithID:(int64_t) relationid;
 
--(void) associateNetworkToRoadsDefinitions;
+//-(void) associateNetworkToRoadsDefinitions;
 
 -(NSDictionary*) getTagsForElement:(Element *)element;
 
 
 
--(NSDictionary*) tagsForWay:(int64_t) wayId;
+//-(NSDictionary*) tagsForWay:(int64_t) wayId;
 
 -(NSArray*) getWaysIdsMembersForRelationWithId:(int64_t) relationId;
 
@@ -88,9 +88,9 @@
 +(NSString *)tableName:(Element *)element;
 
 #pragma DB normalization
--(void) populateWaysInfo;
+//-(void) populateWaysInfo;
 
--(NSInteger) updateOrSaveWayInfoWithName:(NSString*)name andReference:(NSString*)ref;
+//-(NSInteger) updateOrSaveWayInfoWithName:(NSString*)name andReference:(NSString*)ref;
 
 
 

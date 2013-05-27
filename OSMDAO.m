@@ -204,7 +204,7 @@
                     [db executeUpdate:@"DELETE FROM nodes_tags WHERE node_id = ?",[NSNumber numberWithLongLong:node.elementID]];
                     for(NSString * osmKey in node.tags)
                     {
-                        BOOL tagInsertOK = [db executeUpdate:@"insert or replace into nodes_tags(node_id,key,value) values(?,?,?)",[NSNumber numberWithLongLong:node.elementID],osmKey,node.tags[osmKey]];
+                        [db executeUpdate:@"insert or replace into nodes_tags(node_id,key,value) values(?,?,?)",[NSNumber numberWithLongLong:node.elementID],osmKey,node.tags[osmKey]];
                     }
                 }
                 if (alreadyExists) {
@@ -446,7 +446,7 @@
                     
                     for(NSString * osmKey in way.tags)
                     {
-                        BOOL tagInsertOK = [db executeUpdate:@"insert or replace into ways_tags(way_id,key,value) values(?,?,?)",[NSNumber numberWithLongLong:way.elementID],osmKey,way.tags[osmKey]];
+                        [db executeUpdate:@"insert or replace into ways_tags(way_id,key,value) values(?,?,?)",[NSNumber numberWithLongLong:way.elementID],osmKey,way.tags[osmKey]];
                     }
                     
                     if (alreadyExists) {
@@ -532,7 +532,7 @@
                     
                     for(NSString * osmKey in rel.tags)
                     {
-                        BOOL tagInsertOK = [db executeUpdate:@"insert or replace into relations_tags(relation_id,key,value) values(?,?,?)",[NSNumber numberWithLongLong:rel.elementID],osmKey,rel.tags[osmKey]];
+                        [db executeUpdate:@"insert or replace into relations_tags(relation_id,key,value) values(?,?,?)",[NSNumber numberWithLongLong:rel.elementID],osmKey,rel.tags[osmKey]];
                     }
                 }
             }
