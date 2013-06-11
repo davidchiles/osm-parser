@@ -19,36 +19,36 @@
 	return self;
 }
 
--(BOOL) isFirstNodeId:(NSUInteger)nodeId {
-	return [[nodesIds objectAtIndex:0] intValue]==nodeId;
+-(BOOL) isFirstNodeId:(int64_t)nodeId {
+	return [[nodesIds objectAtIndex:0] longLongValue]==nodeId;
 }
 
--(BOOL) isLastNodeId:(NSUInteger)nodeId {
-	return [[nodesIds objectAtIndex:[nodesIds count]-1] intValue]==nodeId;
+-(BOOL) isLastNodeId:(int64_t)nodeId {
+	return [[nodesIds objectAtIndex:[nodesIds count]-1] longLongValue]==nodeId;
 }
 
--(NSInteger) lastNodeId {
+-(int64_t) lastNodeId {
 	if ([nodesIds count]==0)
 		return -1;
 	else
-		return [[nodesIds objectAtIndex:[nodesIds count]-1] intValue];
+		return [[nodesIds objectAtIndex:[nodesIds count]-1] longLongValue];
 }
 
--(NSInteger) firstNodeId {
+-(int64_t) firstNodeId {
 	if ([nodesIds count]==0)
 		return -1;
 	else
-		return [[nodesIds objectAtIndex:0] intValue];
+		return [[nodesIds objectAtIndex:0] longLongValue];
 }
 
--(NSInteger)getCommonNodeIdWith:(Way*)way {
-	NSInteger commonNodeId = -1;
+-(int64_t)getCommonNodeIdWith:(Way*)way {
+	int64_t commonNodeId = -1;
 	if ([way.nodesIds count]==0 || [self.nodesIds count]==0)
 		return commonNodeId;
-	NSUInteger selfStartNode = [[self.nodesIds objectAtIndex:0] intValue];
-	NSUInteger selfEndNode = [[self.nodesIds objectAtIndex:[self.nodesIds count]-1]intValue];
-	NSUInteger wayStartNode = [[way.nodesIds objectAtIndex:0]intValue];
-	NSUInteger wayEndNode = [[way.nodesIds objectAtIndex:[way.nodesIds count]-1] intValue];
+	int64_t selfStartNode = [[self.nodesIds objectAtIndex:0] longLongValue];
+	int64_t selfEndNode = [[self.nodesIds objectAtIndex:[self.nodesIds count]-1]longLongValue];
+	int64_t wayStartNode = [[way.nodesIds objectAtIndex:0]intValue];
+	int64_t wayEndNode = [[way.nodesIds objectAtIndex:[way.nodesIds count]-1] longLongValue];
 	if (selfStartNode==wayStartNode || selfStartNode==wayEndNode)
 		commonNodeId= selfStartNode;
 	else if (selfEndNode == wayStartNode || selfEndNode == wayEndNode)

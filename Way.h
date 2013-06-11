@@ -18,16 +18,16 @@
 	NSUInteger length;
 }
 
--(NSInteger)getCommonNodeIdWith:(Way*)way;
+-(int64_t)getCommonNodeIdWith:(Way*)way;
 
 /** Returns YES if the given nodeid is the first one of this way. */
--(BOOL) isFirstNodeId:(NSUInteger)nodeId;
+-(BOOL) isFirstNodeId:(int64_t)nodeId;
 /** Returns YES if the given nodeid is the last one of this way. */
--(BOOL) isLastNodeId:(NSUInteger)nodeId;
+-(BOOL) isLastNodeId:(int64_t)nodeId;
 /** Returns the nodeid of the first node of this way. */
--(NSInteger) firstNodeId;
+-(int64_t) firstNodeId;
 /** Returns the nodeid of the last node of this way. */
--(NSInteger) lastNodeId;
+-(int64_t) lastNodeId;
 
 @property (readonly)NSMutableArray* nodesIds;
 @property (readwrite, retain)NSArray* nodes;

@@ -46,7 +46,7 @@
 //@synthesize database;
 
 +(void) initialize {
-	//spatialite_init (1);
+	//spatialite_init(1);
 	//[self createGeometryForWayId:1];
 }
 
