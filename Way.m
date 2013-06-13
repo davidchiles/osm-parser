@@ -20,23 +20,29 @@
 }
 
 -(BOOL) isFirstNodeId:(int64_t)nodeId {
-	return [[nodesIds objectAtIndex:0] longLongValue]==nodeId;
+    if (nodeId != 0 || [nodesIds count]) {
+        return [[nodesIds objectAtIndex:0] longLongValue]==nodeId;
+    }
+    return NO;
 }
 
 -(BOOL) isLastNodeId:(int64_t)nodeId {
-	return [[nodesIds objectAtIndex:[nodesIds count]-1] longLongValue]==nodeId;
+    if (nodeId != 0 || [nodesIds count]) {
+        return [[nodesIds objectAtIndex:[nodesIds count]-1] longLongValue]==nodeId;
+    }
+    return  NO;
 }
 
 -(int64_t) lastNodeId {
 	if ([nodesIds count]==0)
-		return -1;
+		return 0;
 	else
 		return [[nodesIds objectAtIndex:[nodesIds count]-1] longLongValue];
 }
 
 -(int64_t) firstNodeId {
 	if ([nodesIds count]==0)
-		return -1;
+		return 0;
 	else
 		return [[nodesIds objectAtIndex:0] longLongValue];
 }
