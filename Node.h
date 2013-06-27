@@ -22,6 +22,6 @@
 /** This node longitude. (WGS 84 - SRID 4326) */
 @property (nonatomic)double longitude;
 
--(CLLocationCoordinate2D)coordinate;
+@property (nonatomic) CLLocationCoordinate2D coordinate;
 
 @end

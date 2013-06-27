@@ -29,6 +29,12 @@
     return CLLocationCoordinate2DMake(self.latitude, self.longitude);
 }
 
+-(void)setCoordinate:(CLLocationCoordinate2D)coordinate
+{
+    self.latitude = coordinate.latitude;
+    self.longitude = coordinate.longitude;
+}
+
 -(NSString *)tableName
 {
     return @"nodes";
