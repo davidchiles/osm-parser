@@ -1,0 +1,26 @@
+//
+//  Comment.m
+//  OSM POI Editor
+//
+//  Created by David on 7/12/13.
+//
+//
+
+#import "Comment.h"
+
+@implementation Comment
+
+@synthesize date,text,userID,username=_username;
+
+
+
+-(NSString *)username
+{
+    if(!_username)
+    {
+        _username = @"Anonymous";
+    }
+    return _username;
+}
+
+@end
