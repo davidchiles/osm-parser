@@ -10,6 +10,6 @@
 
 @implementation Note
 
-@synthesize id,isOpen,commentsArray,coordinate,dateCreated;
+@synthesize id,isOpen,commentsArray,coordinate,dateCreated,dateClosed;
 
 @end

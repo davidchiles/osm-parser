@@ -16,6 +16,7 @@
 @property (nonatomic) CLLocationCoordinate2D coordinate;
 @property (nonatomic,strong) NSArray * commentsArray;
 @property (nonatomic,strong) NSDate * dateCreated;
+@property (nonatomic,strong) NSDate * dateClosed;
 
 
 @end
