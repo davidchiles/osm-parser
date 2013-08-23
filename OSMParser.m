@@ -42,58 +42,85 @@
         [delegate parsingWillStart];
     }
     
+    
+    
     NSDate * start = [NSDate date];
-    double totalNodeTime = 0;
-    double totalWayTime = 0;
-    double totalRelationTime = 0;
-    int numNodes = 0;
-    int numWays = 0;
+    __block double totalNodeTime = 0;
+    __block double totalWayTime = 0;
+    __block double totalRelationTime = 0;
+    __block int numNodes = 0;
+    __block int numWays = 0;
 	TBXMLElement * root = parser.rootXMLElement;
     if(root)
     {
-        if ([self.delegate respondsToSelector:@selector(didStartParsingNodes)]) {
-            [delegate didStartParsingNodes];
-        }
+        
+        NSOperationQueue * operationQueue = [[NSOperationQueue alloc] init];
+        [operationQueue setMaxConcurrentOperationCount:1];
+        
+        __block NSDate * nodeStart = nil;
+        NSBlockOperation * nodeBlockOperation = [NSBlockOperation blockOperationWithBlock:^{
+            if ([self.delegate respondsToSelector:@selector(didStartParsingNodes)]) {
+                [delegate didStartParsingNodes];
+            }
+            nodeStart = [NSDate date];
+            numNodes = [self findAllNodes];
+        }];
+        [nodeBlockOperation setCompletionBlock:^{
+            totalNodeTime -= [nodeStart timeIntervalSinceNow];
+        }];
+        
+        __block NSDate * wayStart = nil;
+        NSBlockOperation * wayBlockOperation = [NSBlockOperation blockOperationWithBlock:^{
+            if ([self.delegate respondsToSelector:@selector(didStartParsingWays)]) {
+                [delegate didStartParsingWays];
+            }
+            wayStart = [NSDate date];
+            numWays = [self findAllWays];
+        }];
+        [wayBlockOperation setCompletionBlock:^{
+            totalWayTime -= [wayStart timeIntervalSinceNow];
+        }];
+        
+        __block NSDate * relationStart = nil;
+        NSBlockOperation * relationBlockOperation = [NSBlockOperation blockOperationWithBlock:^{
+            if ([self.delegate respondsToSelector:@selector(didStartParsingRelations)]) {
+                [delegate didStartParsingRelations];
+            }
+            relationStart = [NSDate date];
+            numWays = [self findAllRelations];
+        }];
+        [relationBlockOperation setCompletionBlock:^{
+            totalRelationTime -= [relationStart timeIntervalSinceNow];
+        }];
         
         
-        NSDate * nodeStart = [NSDate date];
-        numNodes = [self findAllNodes];
-        totalNodeTime -= [nodeStart timeIntervalSinceNow];
+        NSBlockOperation * endBlockOperation = [NSBlockOperation blockOperationWithBlock:^{
+            if ([self.delegate respondsToSelector:@selector(parsingDidEnd)])
+            {
+                [self.delegate parsingDidEnd];
+            }
+            NSTimeInterval time = [start timeIntervalSinceNow];
+            NSLog(@"Total Time: %f",-1*time);
+            NSLog(@"Node Time: %f - %f",totalNodeTime,totalNodeTime/numNodes);
+            NSLog(@"Way Time: %f - %f",totalWayTime,totalWayTime/numWays);
+            NSLog(@"Relation Time: %f",totalRelationTime);
+        }];
         
-        if ([self.delegate respondsToSelector:@selector(didStartParsingWays)]) {
-            [delegate didStartParsingWays];
-        }
+        [endBlockOperation addDependency:nodeBlockOperation];
+        [endBlockOperation addDependency:wayBlockOperation];
+        [endBlockOperation addDependency:relationBlockOperation];
         
-        
-        NSDate * wayStart = [NSDate date];
-        numWays = [self findAllWays];
-        totalWayTime -= [wayStart timeIntervalSinceNow];
-        
-        if ([self.delegate respondsToSelector:@selector(didStartParsingRelations)]) {
-            [delegate didStartParsingRelations];
-        }
-
-        
-        NSDate * relationStart = [NSDate date];
-        numWays = [self findAllRelations];
-        totalRelationTime -= [relationStart timeIntervalSinceNow];
-        
-        if ([self.delegate respondsToSelector:@selector(parsingDidEnd)])
-        {
-            [self.delegate parsingDidEnd];
-        }
-        
-        
-        NSTimeInterval time = [start timeIntervalSinceNow];
-        NSLog(@"Total Time: %f",-1*time);
-        NSLog(@"Node Time: %f - %f",totalNodeTime,totalNodeTime/numNodes);
-        NSLog(@"Way Time: %f - %f",totalWayTime,totalWayTime/numWays);
+        [operationQueue addOperation:nodeBlockOperation];
+        [operationQueue addOperation:wayBlockOperation];
+        [operationQueue addOperation:relationBlockOperation];
+        [operationQueue addOperation:endBlockOperation];
     }
 }
 
 -(NSInteger)findAllNodes
 {
     NSOperationQueue * tagOperationQueue = [[NSOperationQueue alloc] init];
+    //[tagOperationQueue setMaxConcurrentOperationCount:1];
     
     NSInteger numberOfNodes = 0;
     TBXMLElement * nodeXML = [TBXML childElementNamed:@"node" parentElement:parser.rootXMLElement];
@@ -124,6 +151,7 @@
 -(NSInteger)findAllWays
 {
     NSOperationQueue * tagOperationQueue = [[NSOperationQueue alloc] init];
+    //[tagOperationQueue setMaxConcurrentOperationCount:1];
     
     NSInteger numberOfWays = 0;
     TBXMLElement * wayXML = [TBXML childElementNamed:@"way" parentElement:parser.rootXMLElement];
