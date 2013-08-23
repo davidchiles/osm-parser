@@ -16,11 +16,11 @@
  Any delegate object should implement selectors from this protocol to be aware of parsing 
  events.
  */
-@protocol OSMParserDelegate
+@protocol OSMParserDelegate <NSObject>
 /* Invoked when the parsing of the OSM file has started. */
--(void) parsingStart;
+-(void) parsingWillStart;
 /* Invoked when the parsing of the OSM file has ended. */
--(void) parsingEnd;
+-(void) parsingDidEnd;
 @optional
 /* Invoked when the parsing of the nodes part of the OSM file has started. */
 -(void) didStartParsingNodes;
@@ -51,8 +51,6 @@
 
 @interface OSMParser : NSObject {
 	TBXML* parser;
-	id <OSMParserDelegate> delegate;
-	Element* currentElement;
 	NSMutableDictionary* tags;
 	BOOL isFirstNode;
 	BOOL isFirstWay;

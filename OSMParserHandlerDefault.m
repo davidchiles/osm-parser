@@ -110,12 +110,4 @@
 
 }
 
--(void) parsingStart {
-}
-
--(void) parsingEnd {
-    //if (optimizeOnFinished)
-        //[outputDao optimizeDB];
-}
-
 @end

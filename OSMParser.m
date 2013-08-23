@@ -38,7 +38,10 @@
 }
 
 -(void) parse {
-    [delegate parsingStart];
+    if ([self.delegate respondsToSelector:@selector(parsingWillStart)]){
+        [delegate parsingWillStart];
+    }
+    
     NSDate * start = [NSDate date];
     double totalNodeTime = 0;
     double totalWayTime = 0;
@@ -48,29 +51,38 @@
 	TBXMLElement * root = parser.rootXMLElement;
     if(root)
     {
-        if ([(NSObject*)delegate respondsToSelector:@selector(didStartParsingNodes)])
+        if ([self.delegate respondsToSelector:@selector(didStartParsingNodes)]) {
             [delegate didStartParsingNodes];
+        }
+        
         
         NSDate * nodeStart = [NSDate date];
         numNodes = [self findAllNodes];
         totalNodeTime -= [nodeStart timeIntervalSinceNow];
         
-        if ([(NSObject*)delegate respondsToSelector:@selector(didStartParsingWays)])
+        if ([self.delegate respondsToSelector:@selector(didStartParsingWays)]) {
             [delegate didStartParsingWays];
+        }
+        
         
         NSDate * wayStart = [NSDate date];
         numWays = [self findAllWays];
         totalWayTime -= [wayStart timeIntervalSinceNow];
         
-        if ([(NSObject*)delegate respondsToSelector:@selector(didStartParsingRelations)])
+        if ([self.delegate respondsToSelector:@selector(didStartParsingRelations)]) {
             [delegate didStartParsingRelations];
+        }
 
         
         NSDate * relationStart = [NSDate date];
         numWays = [self findAllRelations];
         totalRelationTime -= [relationStart timeIntervalSinceNow];
         
-        [delegate parsingEnd];
+        if ([self.delegate respondsToSelector:@selector(parsingDidEnd)])
+        {
+            [self.delegate parsingDidEnd];
+        }
+        
         
         NSTimeInterval time = [start timeIntervalSinceNow];
         NSLog(@"Total Time: %f",-1*time);
@@ -81,6 +93,8 @@
 
 -(NSInteger)findAllNodes
 {
+    NSOperationQueue * tagOperationQueue = [[NSOperationQueue alloc] init];
+    
     NSInteger numberOfNodes = 0;
     TBXMLElement * nodeXML = [TBXML childElementNamed:@"node" parentElement:parser.rootXMLElement];
     while (nodeXML) {
@@ -93,12 +107,14 @@
         [node addMetaData:[self attributesWithTBXML:nodeXML]];
 		node.latitude = lat;
 		node.longitude = lon;
-        currentElement = node;
         
-        currentElement = node;
-        [self findTags:nodeXML];
+        NSBlockOperation * tagBlockOperation = [NSBlockOperation blockOperationWithBlock:^{
+            [self findTagsForElement:node withXML:nodeXML];
+            [delegate onNodeFound:node];
+        }];
         
-        [delegate onNodeFound:node];
+        [tagOperationQueue addOperation:tagBlockOperation];
+        
         
         nodeXML = [TBXML nextSiblingNamed:@"node" searchFromElement:nodeXML];
     }
@@ -107,6 +123,8 @@
 }
 -(NSInteger)findAllWays
 {
+    NSOperationQueue * tagOperationQueue = [[NSOperationQueue alloc] init];
+    
     NSInteger numberOfWays = 0;
     TBXMLElement * wayXML = [TBXML childElementNamed:@"way" parentElement:parser.rootXMLElement];
     while (wayXML) {
@@ -116,12 +134,22 @@
         
         Way * way = [[Way alloc] init];
         [way addMetaData:[self attributesWithTBXML:wayXML]];
-        currentElement = way;
-        [self findTags:wayXML];
-        [self findNodes:wayXML withWay:way];
+        
+        NSBlockOperation * tagBlockOperation = [NSBlockOperation blockOperationWithBlock:^{
+            [self findTagsForElement:way withXML:wayXML];
+        }];
+        
+        NSBlockOperation * nodeBlockOperation = [NSBlockOperation blockOperationWithBlock:^{
+            [self findNodes:wayXML withWay:way];
+            [delegate onWayFound:way];
+        }];
+        
+        [nodeBlockOperation addDependency:tagBlockOperation];
+        
+        [tagOperationQueue addOperation:tagBlockOperation];
+        [tagOperationQueue addOperation:nodeBlockOperation];
         
         
-        [delegate onWayFound:way];
         
         //newWay.isNoNameStreetValue = [newWay noNameStreet];
         
@@ -132,6 +160,8 @@
 }
 -(NSInteger)findAllRelations
 {
+    NSOperationQueue * tagOperationQueue = [[NSOperationQueue alloc] init];
+    
     NSInteger numberOfRelations = 0;
     TBXMLElement * relationXML = [TBXML childElementNamed:@"relation" parentElement:parser.rootXMLElement];
     
@@ -140,11 +170,19 @@
         Relation * relation = [[Relation alloc] init];
         [relation addMetaData:[self attributesWithTBXML:relationXML]];
         
-        currentElement = relation;
-        [self findTags:relationXML];
-        [self findMemebers:relationXML withRelation:relation];
+        NSBlockOperation * tagBlockOperation = [NSBlockOperation blockOperationWithBlock:^{
+            [self findTagsForElement:relation withXML:relationXML];
+        }];
         
-        [delegate onRelationFound:relation];
+        NSBlockOperation * nodeBlockOperation = [NSBlockOperation blockOperationWithBlock:^{
+            [self findMemebers:relationXML withRelation:relation];
+            [delegate onRelationFound:relation];
+        }];
+        
+        [nodeBlockOperation addDependency:tagBlockOperation];
+        
+        [tagOperationQueue addOperation:tagBlockOperation];
+        [tagOperationQueue addOperation:nodeBlockOperation];
         
         relationXML = [TBXML nextSiblingNamed:@"relation" searchFromElement:relationXML];
         
@@ -153,7 +191,7 @@
     
 }
 
--(void)findTags:(TBXMLElement *)xmlElement
+-(void)findTagsForElement:(Element*)element withXML:(TBXMLElement *)xmlElement
 {
     TBXMLElement* tag = [TBXML childElementNamed:@"tag" parentElement:xmlElement];
     NSMutableDictionary * dictionary = [NSMutableDictionary dictionary];
@@ -167,8 +205,8 @@
         tag = [TBXML nextSiblingNamed:@"tag" searchFromElement:tag];
     }
     
-    if (currentElement) {
-        currentElement.tags= dictionary;
+    if (element) {
+        element.tags= dictionary;
     }
 
 }
