@@ -222,9 +222,7 @@
     }];
     
     if ([self.delegate respondsToSelector:@selector(didFinishSavingNewElements:updatedElements:)]) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [self.delegate didFinishSavingNewElements:newNodes updatedElements:updateNodes];
-        });
+        [self.delegate didFinishSavingNewElements:newNodes updatedElements:updateNodes];
     }
 }
 
@@ -467,9 +465,7 @@
     }];
 	
     if ([self.delegate respondsToSelector:@selector(didFinishSavingNewElements:updatedElements:)]) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [self.delegate didFinishSavingNewElements:newWays updatedElements:updateWays];
-        });
+        [self.delegate didFinishSavingNewElements:newWays updatedElements:updateWays];
     }
 }
 
