@@ -124,7 +124,7 @@
 -(NSInteger)findAllNodes
 {
     NSOperationQueue * tagOperationQueue = [[NSOperationQueue alloc] init];
-    //[tagOperationQueue setMaxConcurrentOperationCount:1];
+    [tagOperationQueue setMaxConcurrentOperationCount:2];
     
     NSInteger numberOfNodes = 0;
     TBXMLElement * nodeXML = [TBXML childElementNamed:@"node" parentElement:parser.rootXMLElement];
@@ -155,7 +155,7 @@
 -(NSInteger)findAllWays
 {
     NSOperationQueue * tagOperationQueue = [[NSOperationQueue alloc] init];
-    //[tagOperationQueue setMaxConcurrentOperationCount:1];
+    [tagOperationQueue setMaxConcurrentOperationCount:2];
     
     NSInteger numberOfWays = 0;
     TBXMLElement * wayXML = [TBXML childElementNamed:@"way" parentElement:parser.rootXMLElement];
@@ -193,6 +193,7 @@
 -(NSInteger)findAllRelations
 {
     NSOperationQueue * tagOperationQueue = [[NSOperationQueue alloc] init];
+    tagOperationQueue.maxConcurrentOperationCount = 2;
     
     NSInteger numberOfRelations = 0;
     TBXMLElement * relationXML = [TBXML childElementNamed:@"relation" parentElement:parser.rootXMLElement];
