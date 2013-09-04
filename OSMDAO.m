@@ -210,7 +210,7 @@
                 if (alreadyExists) {
                     [updateNodes addObject:node];
                 }
-                else
+                else if(node)
                 {
                     [newNodes addObject:node];
                 }
