@@ -37,7 +37,7 @@
     
 }
 
--(void) parse {
+-(void) parseWithCompletionBlock:(void (^)(void))completionBlock {
     if ([self.delegate respondsToSelector:@selector(parsingWillStart)]){
         [delegate parsingWillStart];
     }
@@ -55,7 +55,7 @@
     {
         
         NSOperationQueue * operationQueue = [[NSOperationQueue alloc] init];
-        [operationQueue setMaxConcurrentOperationCount:1];
+        operationQueue.maxConcurrentOperationCount = 1;
         
         __block NSDate * nodeStart = nil;
         NSBlockOperation * nodeBlockOperation = [NSBlockOperation blockOperationWithBlock:^{
@@ -99,6 +99,10 @@
             {
                 [self.delegate parsingDidEnd];
             }
+            if (completionBlock) {
+                completionBlock();
+            }
+            
             NSTimeInterval time = [start timeIntervalSinceNow];
             NSLog(@"Total Time: %f",-1*time);
             NSLog(@"Node Time: %f - %f",totalNodeTime,totalNodeTime/numNodes);
