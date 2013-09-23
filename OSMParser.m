@@ -12,37 +12,35 @@
 
 @synthesize delegate;
 
+-(id)init {
+    if (self = [super init]) {
+        tagOperationQueue = [[NSOperationQueue alloc] init];
+        tagOperationQueue.maxConcurrentOperationCount = 4;
+        isFirstNode=YES;
+        isFirstWay=YES;
+        isFirstRelation=YES;
+        
+    }
+    return self;
+}
+
 - (id)initWithOSMFile:(NSString*)osmFilePath {
-	if (self!=[super init]) {
-		return nil;
-	}
-	isFirstNode=YES;
-	isFirstWay=YES;
-	isFirstRelation=YES;
-	NSData* data = [NSData dataWithContentsOfFile:osmFilePath];
-	parser=[[TBXML alloc] initWithXMLData:data];
-	return self;
+    NSData* data = [NSData dataWithContentsOfFile:osmFilePath];
+    return [self initWithOSMData:data];
 }
 
 -(id)initWithOSMData:(NSData *)data
 {
-    if (self!=[super init]) {
-		return nil;
+    if (self=[self init]) {
+		parser=[[TBXML alloc] initWithXMLData:data];
 	}
-	isFirstNode=YES;
-	isFirstWay=YES;
-	isFirstRelation=YES;
-	parser=[[TBXML alloc] initWithXMLData:data];
 	return self;
-    
 }
 
 -(void) parseWithCompletionBlock:(void (^)(void))completionBlock {
     if ([self.delegate respondsToSelector:@selector(parsingWillStart)]){
         [delegate parsingWillStart];
     }
-    
-    
     
     NSDate * start = [NSDate date];
     __block double totalNodeTime = 0;
@@ -123,8 +121,6 @@
 
 -(NSInteger)findAllNodes
 {
-    NSOperationQueue * tagOperationQueue = [[NSOperationQueue alloc] init];
-    [tagOperationQueue setMaxConcurrentOperationCount:2];
     
     NSInteger numberOfNodes = 0;
     TBXMLElement * nodeXML = [TBXML childElementNamed:@"node" parentElement:parser.rootXMLElement];
@@ -154,8 +150,6 @@
 }
 -(NSInteger)findAllWays
 {
-    NSOperationQueue * tagOperationQueue = [[NSOperationQueue alloc] init];
-    [tagOperationQueue setMaxConcurrentOperationCount:2];
     
     NSInteger numberOfWays = 0;
     TBXMLElement * wayXML = [TBXML childElementNamed:@"way" parentElement:parser.rootXMLElement];
@@ -192,8 +186,7 @@
 }
 -(NSInteger)findAllRelations
 {
-    NSOperationQueue * tagOperationQueue = [[NSOperationQueue alloc] init];
-    tagOperationQueue.maxConcurrentOperationCount = 2;
+    
     
     NSInteger numberOfRelations = 0;
     TBXMLElement * relationXML = [TBXML childElementNamed:@"relation" parentElement:parser.rootXMLElement];

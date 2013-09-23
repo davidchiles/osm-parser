@@ -51,6 +51,7 @@
 
 @interface OSMParser : NSObject {
 	TBXML* parser;
+    NSOperationQueue * tagOperationQueue;
 	NSMutableDictionary* tags;
 	BOOL isFirstNode;
 	BOOL isFirstWay;

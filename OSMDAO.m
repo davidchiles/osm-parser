@@ -183,11 +183,11 @@
     
     __block NSMutableArray * newNodes = [NSMutableArray array];
     __block NSMutableArray * updateNodes = [NSMutableArray array];
+    
     [databaseQueue inDatabase:^(FMDatabase *db) {
-        BOOL success = NO;
-        success = [db beginTransaction];
-        for (int i=0; i<[nodes count];i++) {
-            Node * node = nodes[i];
+        __block BOOL success = [db beginTransaction];
+        [nodes enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+            Node * node = obj;
             BOOL shouldUpdate = YES;
             BOOL alreadyExists = NO;
             FMResultSet * set = [db executeQuery:[self sqliteCurrentVersionString:node]];
@@ -215,8 +215,7 @@
                     [newNodes addObject:node];
                 }
             }
-            
-        }
+        }];
         
         success = [db commit];
     }];
