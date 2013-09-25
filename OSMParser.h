@@ -64,6 +64,8 @@
 
 - (id)initWithOSMData:(NSData *)data;
 
+- (id)initWithStream:(NSInputStream *)stream;
+
 /** Starts the parsing. */
 -(void) parseWithCompletionBlock:(void (^)(void))completionBlock;
 

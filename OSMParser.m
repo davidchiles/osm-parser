@@ -8,6 +8,8 @@
 
 #import "OSMParser.h"
 
+#import "OSMXMLParserDelegate.h"
+
 @implementation OSMParser
 
 @synthesize delegate;
@@ -35,6 +37,28 @@
 		parser=[[TBXML alloc] initWithXMLData:data];
 	}
 	return self;
+}
+
+- (id)initWithStream:(NSInputStream *)stream
+{
+    if (self = [self init]) {
+        
+        
+        dispatch_block_t dispatch_block = ^(void)
+        {
+            NSXMLParser * xmlParser = [[NSXMLParser alloc] initWithStream:stream];
+            OSMXMLParserDelegate * xmlDelegate = [[OSMXMLParserDelegate alloc] init];
+            [xmlParser setDelegate:xmlDelegate];
+            [xmlParser parse];
+        };
+        
+        // create a queue with a unique name
+        dispatch_queue_t dispatch_queue = dispatch_queue_create("parser.queue", NULL);
+        
+        // dispatch queue
+        dispatch_async(dispatch_queue, dispatch_block);
+    }
+    return self;
 }
 
 -(void) parseWithCompletionBlock:(void (^)(void))completionBlock {
