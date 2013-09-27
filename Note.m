@@ -7,6 +7,7 @@
 //
 
 #import "Note.h"
+#import "Comment.h"
 
 @implementation Note
 
@@ -20,4 +21,16 @@
     return self;
 }
 
+
+-(void)addComment:(Comment *)comment
+{
+    if ([self.commentsArray count]) {
+        NSMutableArray * mutableComments = [self.commentsArray mutableCopy];
+        [mutableComments addObject:comment];
+        self.commentsArray = mutableComments;
+    }
+    else{
+        self.commentsArray = @[comment];
+    }
+}
 @end

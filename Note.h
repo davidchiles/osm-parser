@@ -9,6 +9,8 @@
 #import <Foundation/Foundation.h>
 #import <CoreLocation/CoreLocation.h>
 
+@class Comment;
+
 @interface Note : NSObject
 
 @property (nonatomic) int64_t id;
@@ -17,6 +19,8 @@
 @property (nonatomic,strong) NSArray * commentsArray;
 @property (nonatomic,strong) NSDate * dateCreated;
 @property (nonatomic,strong) NSDate * dateClosed;
+
+-(void)addComment:(Comment *)comment;
 
 
 @end
