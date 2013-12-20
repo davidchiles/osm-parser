@@ -131,7 +131,7 @@
 	else 
 		NSLog(@"[OPTIMIZE] OK" );
 }
-
+/*
 -(void) addContentFrom:(OSMDAO*)networkB {
 	//NSString* req = @;
 	NSLog(@"merging with %@", networkB.filePath); 
@@ -148,7 +148,7 @@
 		const void* geom = sqlite3_column_blob(statement, 1);
 		NSUInteger geomSize = sqlite3_column_bytes(statement, 1);
 		sqlite3_reset(insertStmt);
-		sqlite3_bind_int(insertStmt, 1, wayID);
+		sqlite3_bind_int64(insertStmt, 1, wayID);
 		sqlite3_bind_blob(insertStmt, 2, geom, geomSize, SQLITE_STATIC);
 		sqlite3_step(insertStmt);
 	}
@@ -157,14 +157,14 @@
 	sqlite3_finalize(insertStmt);
 	sqlite3_finalize(statement);
 }
-
+*/
 -(NSArray*) getMotorwaysRelationsIds {
 	NSMutableArray* relations = [NSMutableArray array];
 	sqlite3_stmt *statement;
 	sqlite3_prepare_v2(dbHandle, "select relationid from relations_tags where value like \"A %\"", -1, &statement, NULL);
 	while (sqlite3_step(statement) == SQLITE_ROW) {
 		NSUInteger relationID = sqlite3_column_int(statement,0);
-		[relations addObject:[NSNumber numberWithInt:relationID]];
+		[relations addObject:[NSNumber numberWithUnsignedInteger:relationID]];
 	}
 	sqlite3_finalize(statement);
 	
@@ -382,11 +382,11 @@
 	const char *sql = "SELECT nodeid from ways_nodes where wayid=? ORDER BY rowid";
 	if(sqlite3_prepare_v2(dbHandle, sql, -1, &stmt, NULL) != SQLITE_OK)
 		NSAssert1(0, @"Error while creating statement. '%s'", sqlite3_errmsg(dbHandle));
-	sqlite3_bind_int(stmt, 1, wayid);
+	sqlite3_bind_int64(stmt, 1, wayid);
 	while (sqlite3_step(stmt)==SQLITE_ROW) {
 		NSInteger nodeid = sqlite3_column_int(stmt, 0);
 		//Way* way = [self getWayWithID:memberId];
-		[way.nodesIds addObject:[NSNumber numberWithInt:nodeid]];
+		[way.nodesIds addObject:[NSNumber numberWithInteger:nodeid]];
 		//sqlite3_reset(stmt);
 	}
 	sqlite3_finalize(stmt);
@@ -395,7 +395,7 @@
 	const char *getLengthSql = "SELECT length from ways where wayid=?";
 	if(sqlite3_prepare_v2(dbHandle, getLengthSql, -1, &stmt, NULL) != SQLITE_OK)
 		NSAssert1(0, @"Error while creating statement. '%s'", sqlite3_errmsg(dbHandle));
-	sqlite3_bind_int(stmt, 1, wayid);
+	sqlite3_bind_int64(stmt, 1, wayid);
 	sqlite3_step(stmt);
 	NSUInteger length = sqlite3_column_int(stmt, 0);
 	way.length=length;
@@ -581,12 +581,12 @@
 	const char *sql = "SELECT ref from relations_members where relationid=? ORDER BY rowid";
 	if(sqlite3_prepare_v2(dbHandle, sql, -1, &stmt, NULL) != SQLITE_OK)
 		NSAssert1(0, @"Error while creating statement. '%s'", sqlite3_errmsg(dbHandle));
-	sqlite3_bind_int(stmt, 1, relationid);
+	sqlite3_bind_int64(stmt, 1, relationid);
 	while (sqlite3_step(stmt)==SQLITE_ROW) {
 		NSInteger memberId = sqlite3_column_int(stmt, 0);
 		Way* way = [self getWayWithID:memberId];
 		if (way==nil)
-			NSAssert1(0, @"Cannot fin way %i", memberId);
+			NSAssert1(0, @"Cannot fin way %ld", (long)memberId);
 		[relation.members addObject:way];
 		//sqlite3_reset(stmt);
 	}

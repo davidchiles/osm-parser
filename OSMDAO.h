@@ -47,7 +47,7 @@
 -(void) optimizeDB;
 
 /** Copies content from another OSMDAO to this one. */ 
--(void) addContentFrom:(OSMDAO*)networkB;
+//-(void) addContentFrom:(OSMDAO*)networkB;
 
 /** Stores the given nodes in one single transaction. */
 -(void) addNodes:(NSArray*)nodes;

@@ -49,6 +49,13 @@
 	NSLog(@"[NOW PARSING RELATIONS]"); 
 }
 
+- (void)parsingWillStart {
+    NSLog(@"[PARSING WILL START]");
+}
+
+- (void)parsingDidEnd {
+    NSLog(@"[PARSING DID END");
+}
 
 -(void) onNodeFound:(Node *)node {
 	if (!ignoreNodes) {
@@ -81,7 +88,7 @@
 
 -(BOOL) checkForNodesFlush {
 	if ([nodesBuffer count]!=0) {
-		NSLog(@"parsed %i nodes", nodesCounter);
+		NSLog(@"parsed %lu nodes", (unsigned long)nodesCounter);
 		[self.outputDao addNodes:nodesBuffer];
 		[nodesBuffer removeAllObjects];
 		return YES;
@@ -92,7 +99,7 @@
 
 -(BOOL) checkForWaysFlush {
 	if ([waysBuffer count]!=0) {
-		NSLog(@"parsed %i ways", waysCounter);
+		NSLog(@"parsed %lu ways", (unsigned long)waysCounter);
 		NSLog(@"now populating corresponding nodes");
 		for (int i=0; i<[waysBuffer count]; i++) {
 			Way* w =[waysBuffer objectAtIndex:i];

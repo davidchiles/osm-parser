@@ -46,8 +46,8 @@
     __block double totalNodeTime = 0;
     __block double totalWayTime = 0;
     __block double totalRelationTime = 0;
-    __block int numNodes = 0;
-    __block int numWays = 0;
+    __block NSInteger numNodes = 0;
+    __block NSInteger numWays = 0;
 	TBXMLElement * root = parser.rootXMLElement;
     if(root)
     {

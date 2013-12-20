@@ -63,7 +63,7 @@
 }
 
 -(NSString*) description {
-	return [NSString stringWithFormat:@"Way(%lli)%i nodes", self.elementID, [nodesIds count]];
+	return [NSString stringWithFormat:@"Way(%lli)%lu nodes", self.elementID, (unsigned long)[nodesIds count]];
 }
 
 -(NSString *)tableName;
