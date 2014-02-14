@@ -6,12 +6,10 @@
 //  Copyright 2011 __MyCompanyName__. All rights reserved.
 //
 
-#import "Node.h"
+#import "OSMNode.h"
 
 
-@implementation Node
-
-@synthesize latitude, longitude;
+@implementation OSMNode
 
 -(void)addMetaData:(NSDictionary *)dictionary
 {
@@ -21,7 +19,7 @@
 }
 
 -(NSString*) description {
-	return [NSString stringWithFormat:@"Node(%lli)%f,%f", self.elementID, latitude, longitude];
+	return [NSString stringWithFormat:@"Node(%lli)%f,%f", self.elementID, self.latitude, self.longitude];
 }
 
 -(CLLocationCoordinate2D)coordinate

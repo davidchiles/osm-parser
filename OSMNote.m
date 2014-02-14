@@ -6,12 +6,10 @@
 //
 //
 
-#import "Note.h"
-#import "Comment.h"
+#import "OSMNote.h"
+#import "OSMComment.h"
 
-@implementation Note
-
-@synthesize id,isOpen,commentsArray,coordinate,dateCreated,dateClosed;
+@implementation OSMNote
 
 -(id)init
 {
@@ -22,7 +20,7 @@
 }
 
 
--(void)addComment:(Comment *)comment
+-(void)addComment:(OSMComment *)comment
 {
     if ([self.commentsArray count]) {
         NSMutableArray * mutableComments = [self.commentsArray mutableCopy];

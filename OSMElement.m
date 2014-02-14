@@ -6,9 +6,11 @@
 //
 //
 
-#import "Element.h"
+#import "OSMElement.h"
 
-@implementation Element
+
+
+@implementation OSMElement
 
 @synthesize uid,user,action,version,changeset,elementID;
 
@@ -42,22 +44,17 @@
 }
 -(NSString *)formattedDate
 {
-    NSDateFormatter * dateFormatter = [self defaultDateFormatter];
+    NSDateFormatter * dateFormatter = [OSMElement defaultDateFormatter];
     return [dateFormatter stringFromDate:self.timeStamp];
 
 }
 -(void)addDateWithString:(NSString *)dateString
 {
-    NSDateFormatter * dateFormatter = [self defaultDateFormatter];
+    NSDateFormatter * dateFormatter = [OSMElement defaultDateFormatter];
     self.timeStamp = [dateFormatter dateFromString:dateString];
 
 }
--(NSDateFormatter *)defaultDateFormatter
-{
-    NSDateFormatter * formatter = [[NSDateFormatter alloc] init];
-    [formatter setDateFormat:@"YYYY-MM-dd'T'HH:mm:ssZ"];
-    return formatter;
-}
+
 -(NSString *)tableName
 {
     return @"";
@@ -65,6 +62,19 @@
 -(NSString *)tagsTableName
 {
     return @"";
+}
+
++ (NSDateFormatter *)defaultDateFormatter
+{
+    static NSDateFormatter *dateFormatter = nil;
+    
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+         dateFormatter = [[NSDateFormatter alloc] init];
+        [dateFormatter setDateFormat:@"YYYY-MM-dd'T'HH:mm:ssZ"];
+    });
+    
+    return dateFormatter;
 }
 
 @end

@@ -7,9 +7,9 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "Node.h"
-#import "Way.h"
-#import "Relation.h"
+#import "OSMNode.h"
+#import "OSMWay.h"
+#import "OSMRelation.h"
 #import "TBXML.h"
 
 /**
@@ -25,19 +25,19 @@
 /* Invoked when the parsing of the nodes part of the OSM file has started. */
 -(void) didStartParsingNodes;
 /* Invoked when a node definition has been parsed in the OSM file. */
--(void) onNodeFound:(Node*)node;
+-(void) onNodeFound:(OSMNode*)node;
 /* Invoked when the parsing of the ways part of the OSM file has started. This usually happens once 
  all the nodes part parsing has been finished. */
 -(void) didStartParsingWays;
 /* Invoked when a way definition has been parsed in the OSM file. */
--(void) onWayFound:(Way*)way;
+-(void) onWayFound:(OSMWay*)way;
 @optional
 /* Invoked when the parsing of the relations part of the OSM file has started. This usually happens once
  the ways parsing has been done. */
 -(void) didStartParsingRelations;
 /* Invoked when a relation has been parsed in the OSM file. */
 
--(void) onRelationFound:(Relation*)relation;
+-(void) onRelationFound:(OSMRelation*)relation;
 @end
 
 /**
@@ -49,14 +49,7 @@
  loading the whole file in memory (required when you want to parse .osm files larger XXX megabytes !)
  */
 
-@interface OSMParser : NSObject {
-	TBXML* parser;
-    NSOperationQueue * tagOperationQueue;
-	NSMutableDictionary* tags;
-	BOOL isFirstNode;
-	BOOL isFirstWay;
-	BOOL isFirstRelation;
-}
+@interface OSMParser : NSObject
 
 @property (readwrite, retain) id <OSMParserDelegate> delegate;
 

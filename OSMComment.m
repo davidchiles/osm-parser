@@ -6,12 +6,9 @@
 //
 //
 
-#import "Comment.h"
+#import "OSMComment.h"
 
-@implementation Comment
-
-@synthesize date,text,userID,username=_username;
-
+@implementation OSMComment
 
 
 -(NSString *)username

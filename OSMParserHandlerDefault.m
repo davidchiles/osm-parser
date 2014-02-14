@@ -12,7 +12,7 @@
 #if DEBUG
 static const int ddLogLevel = LOG_LEVEL_VERBOSE;
 static const BOOL OPELogDatabaseErrors = YES;
-static const BOOL OPETraceDatabaseTraceExecution = YES;
+static const BOOL OPETraceDatabaseTraceExecution = NO;
 #else
 static const int ddLogLevel = LOG_LEVEL_OFF;
 static const BOOL OPELogDatabaseErrors = NO;
@@ -38,7 +38,7 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
 -(id) initWithOutputFilePath:(NSString*)filePath overrideIfExists:(BOOL)override {
 	if (self!=[super init])
 		return nil;
-	self.outputDao=[[OSMDAO alloc] initWithFilePath:filePath overrideIfExists:override];
+	self.outputDao=[[OSMDatabaseManager alloc] initWithFilePath:filePath overrideIfExists:override];
 	nodesBuffer=[[NSMutableArray alloc] init];
 	waysBuffer=[[NSMutableArray alloc] init];
 	bufferMaxSize=30000;
@@ -68,7 +68,7 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
     DDLogInfo(@"[PARSING DID END");
 }
 
--(void) onNodeFound:(Node *)node {
+-(void) onNodeFound:(OSMNode *)node {
 	if (!ignoreNodes) {
 		//[roadNetwork addNodes:[NSArray arrayWithObject:node]];
 		[nodesBuffer addObject:node];
@@ -81,7 +81,7 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
 	}
 }
 
--(void) onWayFound:(Way *)way {
+-(void) onWayFound:(OSMWay *)way {
 	[waysBuffer addObject:way];
 	if ([way.nodesIds count]==0)
 		DDLogWarn(@"WARNING No Node for WAY %lldi", way.elementID);
@@ -92,7 +92,7 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
 	}
 }
 
--(void) onRelationFound:(Relation *)relation {
+-(void) onRelationFound:(OSMRelation *)relation {
 	//NSLog(@"relation found");
 	[self.outputDao addRelation:relation];
 }
@@ -113,7 +113,7 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
 		DDLogInfo(@"parsed %lu ways", (unsigned long)waysCounter);
 		DDLogInfo(@"now populating corresponding nodes");
 		for (int i=0; i<[waysBuffer count]; i++) {
-			Way* w =[waysBuffer objectAtIndex:i];
+			OSMWay* w =[waysBuffer objectAtIndex:i];
 			NSArray* n =[self.outputDao getNodesForWay:w];
 			w.nodes=n;
 		}

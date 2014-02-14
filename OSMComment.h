@@ -8,7 +8,7 @@
 
 #import <Foundation/Foundation.h>
 
-@interface Comment : NSObject
+@interface OSMComment : NSObject
 
 @property (nonatomic,strong) NSDate * date;
 @property (nonatomic,strong) NSString * text;

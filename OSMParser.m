@@ -12,12 +12,23 @@
 #if DEBUG
 static const int ddLogLevel = LOG_LEVEL_VERBOSE;
 static const BOOL OPELogDatabaseErrors = YES;
-static const BOOL OPETraceDatabaseTraceExecution = YES;
+static const BOOL OPETraceDatabaseTraceExecution = NO;
 #else
 static const int ddLogLevel = LOG_LEVEL_OFF;
 static const BOOL OPELogDatabaseErrors = NO;
 static const BOOL OPETraceDatabaseTraceExecution = NO;
 #endif
+
+@interface OSMParser ()
+
+@property (nonatomic, strong) TBXML *parser;
+@property (nonatomic, strong) NSOperationQueue *tagOperationQueue;
+@property (nonatomic, strong) NSMutableDictionary *tags;
+@property (nonatomic) BOOL isFirstNode;
+@property (nonatomic) BOOL isFirstWay;
+@property (nonatomic) BOOL isFirstRelation;
+
+@end
 
 @implementation OSMParser
 
@@ -25,11 +36,11 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
 
 -(id)init {
     if (self = [super init]) {
-        tagOperationQueue = [[NSOperationQueue alloc] init];
-        tagOperationQueue.maxConcurrentOperationCount = 4;
-        isFirstNode=YES;
-        isFirstWay=YES;
-        isFirstRelation=YES;
+        self.tagOperationQueue = [[NSOperationQueue alloc] init];
+        self.tagOperationQueue.maxConcurrentOperationCount = 4;
+        self.isFirstNode=YES;
+        self.isFirstWay=YES;
+        self.isFirstRelation=YES;
         
     }
     return self;
@@ -43,7 +54,7 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
 -(id)initWithOSMData:(NSData *)data
 {
     if (self=[self init]) {
-		parser=[[TBXML alloc] initWithXMLData:data];
+		self.parser=[[TBXML alloc] initWithXMLData:data];
 	}
 	return self;
 }
@@ -59,7 +70,7 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
     __block double totalRelationTime = 0;
     __block NSInteger numNodes = 0;
     __block NSInteger numWays = 0;
-	TBXMLElement * root = parser.rootXMLElement;
+	TBXMLElement * root = self.parser.rootXMLElement;
     if(root)
     {
         
@@ -134,14 +145,14 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
 {
     
     NSInteger numberOfNodes = 0;
-    TBXMLElement * nodeXML = [TBXML childElementNamed:@"node" parentElement:parser.rootXMLElement];
+    TBXMLElement * nodeXML = [TBXML childElementNamed:@"node" parentElement:self.parser.rootXMLElement];
     while (nodeXML) {
         numberOfNodes +=1;
         //int64_t newVersion = [[TBXML valueOfAttributeNamed:@"version" forElement:nodeXML] longLongValue];
         double lat = [[TBXML valueOfAttributeNamed:@"lat" forElement:nodeXML] doubleValue];
         double lon = [[TBXML valueOfAttributeNamed:@"lon" forElement:nodeXML] doubleValue];
         
-        Node* node = [[Node alloc] init];
+        OSMNode* node = [[OSMNode alloc] init];
         [node addMetaData:[self attributesWithTBXML:nodeXML]];
 		node.latitude = lat;
 		node.longitude = lon;
@@ -151,7 +162,7 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
             [delegate onNodeFound:node];
         }];
         
-        [tagOperationQueue addOperation:tagBlockOperation];
+        [self.tagOperationQueue addOperation:tagBlockOperation];
         
         
         nodeXML = [TBXML nextSiblingNamed:@"node" searchFromElement:nodeXML];
@@ -163,13 +174,13 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
 {
     
     NSInteger numberOfWays = 0;
-    TBXMLElement * wayXML = [TBXML childElementNamed:@"way" parentElement:parser.rootXMLElement];
+    TBXMLElement * wayXML = [TBXML childElementNamed:@"way" parentElement:self.parser.rootXMLElement];
     while (wayXML) {
         numberOfWays +=1;
         //int64_t newVersion = [[TBXML valueOfAttributeNamed:@"version" forElement:wayXML] longLongValue];
         //int64_t osmID = [[TBXML valueOfAttributeNamed:@"id" forElement:wayXML] longLongValue];
         
-        Way * way = [[Way alloc] init];
+        OSMWay * way = [[OSMWay alloc] init];
         [way addMetaData:[self attributesWithTBXML:wayXML]];
         
         NSBlockOperation * tagBlockOperation = [NSBlockOperation blockOperationWithBlock:^{
@@ -183,8 +194,8 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
         
         [nodeBlockOperation addDependency:tagBlockOperation];
         
-        [tagOperationQueue addOperation:tagBlockOperation];
-        [tagOperationQueue addOperation:nodeBlockOperation];
+        [self.tagOperationQueue addOperation:tagBlockOperation];
+        [self.tagOperationQueue addOperation:nodeBlockOperation];
         
         
         
@@ -200,11 +211,11 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
     
     
     NSInteger numberOfRelations = 0;
-    TBXMLElement * relationXML = [TBXML childElementNamed:@"relation" parentElement:parser.rootXMLElement];
+    TBXMLElement * relationXML = [TBXML childElementNamed:@"relation" parentElement:self.parser.rootXMLElement];
     
     while (relationXML) {
         numberOfRelations +=1;
-        Relation * relation = [[Relation alloc] init];
+        OSMRelation * relation = [[OSMRelation alloc] init];
         [relation addMetaData:[self attributesWithTBXML:relationXML]];
         
         NSBlockOperation * tagBlockOperation = [NSBlockOperation blockOperationWithBlock:^{
@@ -218,8 +229,8 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
         
         [nodeBlockOperation addDependency:tagBlockOperation];
         
-        [tagOperationQueue addOperation:tagBlockOperation];
-        [tagOperationQueue addOperation:nodeBlockOperation];
+        [self.tagOperationQueue addOperation:tagBlockOperation];
+        [self.tagOperationQueue addOperation:nodeBlockOperation];
         
         relationXML = [TBXML nextSiblingNamed:@"relation" searchFromElement:relationXML];
         
@@ -228,7 +239,7 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
     
 }
 
--(void)findTagsForElement:(Element*)element withXML:(TBXMLElement *)xmlElement
+-(void)findTagsForElement:(OSMElement*)element withXML:(TBXMLElement *)xmlElement
 {
     TBXMLElement* tag = [TBXML childElementNamed:@"tag" parentElement:xmlElement];
     NSMutableDictionary * dictionary = [NSMutableDictionary dictionary];
@@ -248,7 +259,7 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
 
 }
 
--(void)findNodes:(TBXMLElement *)xmlElement withWay:(Way *)way
+-(void)findNodes:(TBXMLElement *)xmlElement withWay:(OSMWay *)way
 {
     
     //int64_t osmID = [[TBXML valueOfAttributeNamed:@"id" forElement:xmlElement] longLongValue];
@@ -263,7 +274,7 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
 
     }
 }
--(void)findMemebers:(TBXMLElement *)xmlElement withRelation:(Relation *)relation
+-(void)findMemebers:(TBXMLElement *)xmlElement withRelation:(OSMRelation *)relation
 {
     TBXMLElement * memberXML = [TBXML childElementNamed:@"member" parentElement:xmlElement];
     
@@ -273,11 +284,11 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
         NSString * roleString = [TBXML valueOfAttributeNamed:@"role" forElement:memberXML];
         
         
-		Member* member = [[Member alloc] init];
+		OSMMember* member = [[OSMMember alloc] init];
 		member.type=typeString;
 		member.ref=elementOsmID;
 		member.role=roleString;
-		[relation.members addObject:member];
+		[relation addMember:member];
         
         memberXML= [TBXML nextSiblingNamed:@"member" searchFromElement:memberXML];
     }
@@ -293,122 +304,6 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
         [attributeDict setObject:[NSString stringWithFormat:@"%s" ,attribute->value] forKey:[NSString stringWithFormat:@"%s" ,attribute->name]];
     }
     return attributeDict;
-}
-
-//<node id="274026" lat="43.6113906" lon="7.1074235" user="Djam" uid="24982" visible="true" version="2" changeset="3759495" timestamp="2010-01-31T14:18:39Z"/>
-//<way id="68063774" user="Bert Bos" uid="155462" visible="true" version="1" changeset="5234652" timestamp="2010-07-16T14:23:00Z">
-//<nd ref="820399673"/>
-//<nd ref="820688904"/>
-
-/*
-+(NSUInteger) asInteger:(NSString*)v {
-	//NSUInteger idx = [v rangeOfString:@"."].location;
-	//NSUInteger numberOfDecimals = [v length] - idx;
-	v = [v stringByReplacingOccurrencesOfString:@"." withString:@""];
-	NSUInteger value = [v intValue];
-	return value;
-}
-
-- (void)parser:(AQXMLParser *)parser didStartElement:(NSString *)elementName namespaceURI:(NSString *)namespaceURI qualifiedName:(NSString *)qName attributes:(NSDictionary *)attributeDict {
-	if ([elementName isEqual:@"node"]) {
-		NSString* latitudeAsString=(NSString*)[attributeDict objectForKey:@"lat"];
-		NSString* longitudeAsString=(NSString*)[attributeDict objectForKey:@"lon"];
-		NSUInteger nodeid = [(NSString*)[attributeDict objectForKey:@"id"] intValue]; 
-		//NSLog(@"parsed %d(%i, %i)", nodeid, , [OSMParser asInteger:longitudeAsString]);
-		Node* node = [[Node alloc] init];
-		node.nodeId = nodeid;
-		node.latitude = [latitudeAsString doubleValue];
-		node.longitude = [longitudeAsString doubleValue];
-		currentNode = node;
-	} else if ([elementName isEqual:@"way"]) {
-		NSUInteger wayid = [(NSString*)[attributeDict objectForKey:@"id"] intValue]; 
-		currentWay=[[Way alloc] init];
-		currentWay.wayId=wayid;
-	} else if ([elementName isEqual:@"relation"]) {
-		
-		 <relation id="539184" user="Nikita006" uid="35470" visible="true" version="15" changeset="4285518" timestamp="2010-03-31T13:57:26Z">
-		 <member type="way" ref="4726817" role=""/>
-		 ....
-		 <tag k="ref" v="D 535"/>
-		 <tag k="route" v="road"/>
-		 <tag k="type" v="route"/>
-		 
-		NSUInteger relationid = [(NSString*)[attributeDict objectForKey:@"id"] intValue]; 
-		currentRelation=[[Relation alloc] init];
-		currentRelation.relationId=relationid;
-	} else if ([elementName isEqual:@"member"]) {
-		NSString* type = (NSString*)[attributeDict objectForKey:@"type"]; 
-		NSUInteger ref = [(NSString*)[attributeDict objectForKey:@"ref"] intValue]; 
-		NSString* role = (NSString*)[attributeDict objectForKey:@"role"]; 
-		Member* member = [[Member alloc] init];
-		member.type=type;
-		member.ref=ref;
-		member.role=role;
-		[currentRelation.members addObject:member];
-		[member release];
-		
-	} else if ([elementName isEqual:@"nd"]) {
-		NSUInteger ref = [(NSString*)[attributeDict objectForKey:@"ref"] intValue]; 
-		NSNumber* refAsNumber = [[NSNumber alloc] initWithUnsignedInteger:ref];
-		[currentWay.nodesIds addObject:refAsNumber];
-		[refAsNumber release];
-	} else if ([elementName isEqual:@"tag"]) {
-		if (tags==nil) {
-			tags = [[NSMutableDictionary alloc] init];
-			if (currentNode)
-				currentNode.tags=tags;
-			else if (currentWay)
-				currentWay.tags=tags;
-			else if (currentRelation)
-				currentRelation.tags=tags;
-		}
-		[tags setObject:[attributeDict objectForKey:@"v"] forKey:[attributeDict objectForKey:@"k"]];
-	} 
-}
-
-- (void)parser:(AQXMLParser *)parser didEndElement:(NSString *)elementName namespaceURI:(NSString *)namespaceURI qualifiedName:(NSString *)qName {
-	if ([elementName isEqual:@"node"]) {
-		if (isFirstNode) {
-			isFirstNode=NO;
-			if ([(NSObject*)delegate respondsToSelector:@selector(didStartParsingNodes)])
-				[delegate didStartParsingNodes];
-		}
-		[delegate onNodeFound:currentNode];
-		[currentNode release];
-		currentNode = nil;
-		[tags release];
-		tags=nil;
-	} else if ([elementName isEqual:@"way"]) {
-		if (isFirstWay) {
-			isFirstWay=NO;
-			if ([(NSObject*)delegate respondsToSelector:@selector(didStartParsingWays)])
-				[delegate didStartParsingWays];
-		}
-		[delegate onWayFound:currentWay];
-		[currentWay release];
-		currentWay=nil;
-		[tags release];
-		tags=nil;
-	} else if ([elementName isEqual:@"relation"]) {
-		if (isFirstRelation) {
-			isFirstRelation=NO;
-			[delegate didStartParsingRelations];
-		}
-		[delegate onRelationFound:currentRelation];
-		[currentRelation release];
-		currentRelation=nil;
-		[tags release];
-		tags=nil;
-	}
-}
-*/
--(NSData *) uploadXMLforChangset: (int64_t)changesetNumber
-{
-    return nil;
-}
--(NSData *) deleteXMLforChangset: (int64_t) changesetNumber
-{
-    return nil;
 }
 
 @end

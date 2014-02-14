@@ -9,9 +9,9 @@
 #import <Foundation/Foundation.h>
 #import <CoreLocation/CoreLocation.h>
 
-@class Comment;
+@class OSMComment;
 
-@interface Note : NSObject
+@interface OSMNote : NSObject
 
 @property (nonatomic) int64_t id;
 @property (nonatomic) BOOL isOpen;
@@ -20,7 +20,7 @@
 @property (nonatomic,strong) NSDate * dateCreated;
 @property (nonatomic,strong) NSDate * dateClosed;
 
--(void)addComment:(Comment *)comment;
+-(void)addComment:(OSMComment *)comment;
 
 
 @end

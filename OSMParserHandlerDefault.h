@@ -8,12 +8,12 @@
 
 #import <Foundation/Foundation.h>
 #import "OSMParser.h"
-#import "OSMDAO.h"
+#import "OSMDatabaseManager.h"
 
 /**
  The default OSMParser handler.
  It stores any parsed node, way, relation to a spatialite db. Such DB is accessed
- through the OSMDAO instance given at init time.
+ through the OSMDatabaseManager instance given at init time.
  The flush to the DB is done once the limit number of parsed objects has been reached
  (see bufferMaxSize) to limit the number of db transactions and improve db access time. 
  */
@@ -40,7 +40,7 @@
 
 @property(readwrite) BOOL optimizeOnFinished;
 
-@property (nonatomic,strong) OSMDAO * outputDao;
+@property (nonatomic,strong) OSMDatabaseManager * outputDao;
 
 /**
  Creates a new OSMParserHandlerDefault that will create a spatialite DB at the given output path

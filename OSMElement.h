@@ -8,7 +8,7 @@
 
 #import <Foundation/Foundation.h>
 
-@interface Element : NSObject
+@interface OSMElement : NSObject
 
 
 @property (nonatomic,strong) NSMutableDictionary * tags;
