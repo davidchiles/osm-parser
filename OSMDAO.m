@@ -15,6 +15,19 @@
 //#import "spatialite.h"
 
 
+
+#import "DDLog.h"
+#if DEBUG
+    static const int ddLogLevel = LOG_LEVEL_VERBOSE;
+    static const BOOL OPELogDatabaseErrors = YES;
+    static const BOOL OPETraceDatabaseTraceExecution = YES;
+#else
+    static const int ddLogLevel = LOG_LEVEL_OFF;
+    static const BOOL OPELogDatabaseErrors = NO;
+    static const BOOL OPETraceDatabaseTraceExecution = NO;
+#endif
+
+
 @interface OSMDAO (privateAPI)
 -(void) initDB;
 -(void) addNodeAsGeom:(Node*)node;
@@ -61,7 +74,7 @@
 	}
 	int ret = sqlite3_open_v2 ([resPath cStringUsingEncoding:NSUTF8StringEncoding], &dbHandle, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
 	if (ret != SQLITE_OK)
-		NSLog(@"error when opening %@", resPath);
+		DDLogError(@"error when opening %@", resPath);
 	/*else
 		NSLog(@"OPEN OK");*/
 	if (!exists || (exists && override)) {
@@ -129,7 +142,7 @@
 	if (returnValue!=SQLITE_OK)
 		NSAssert1(0, @"Error optimizing db. '%s'", sqlite3_errmsg(dbHandle));
 	else 
-		NSLog(@"[OPTIMIZE] OK" );
+		DDLogInfo(@"[OPTIMIZE] OK" );
 }
 /*
 -(void) addContentFrom:(OSMDAO*)networkB {
@@ -353,7 +366,7 @@
 		if (n!=nil)
 			[nodes addObject:n];
 		else
-			NSLog(@"Cannot find node %lld for WAY ID %lli tags:%@", nodeId, way.elementID, way.tags);
+			DDLogWarn(@"Cannot find node %lld for WAY ID %lli tags:%@", nodeId, way.elementID, way.tags);
 
 	}
 	return nodes;
@@ -409,7 +422,8 @@
     __block NSMutableArray * newWays = [NSMutableArray array];
     __block NSMutableArray * updateWays = [NSMutableArray array];
     [databaseQueue inDatabase:^(FMDatabase *db) {
-        db.logsErrors = YES;
+        db.logsErrors = OPELogDatabaseErrors;
+        db.traceExecution = OPETraceDatabaseTraceExecution;
         BOOL success = NO;
         success = [db beginTransaction];
         for (int i=0; i<[ways count];i++) {
@@ -438,7 +452,7 @@
                         }
                         else
                         {
-                            NSLog(@"ERROR NO Way Nodes");
+                            DDLogError(@"ERROR NO Way Nodes");
                         }
                     }
                     
@@ -504,7 +518,8 @@
 	
 	__block BOOL alreadyExists = NO;
     [databaseQueue inDatabase:^(FMDatabase *db) {
-        db.logsErrors = YES;
+        db.logsErrors = OPELogDatabaseErrors;
+        db.traceExecution = OPETraceDatabaseTraceExecution;
         [db beginTransaction];
         
         BOOL shouldUpdate = YES;

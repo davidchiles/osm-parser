@@ -8,6 +8,17 @@
 
 #import "OSMParser.h"
 
+#import "DDLog.h"
+#if DEBUG
+static const int ddLogLevel = LOG_LEVEL_VERBOSE;
+static const BOOL OPELogDatabaseErrors = YES;
+static const BOOL OPETraceDatabaseTraceExecution = YES;
+#else
+static const int ddLogLevel = LOG_LEVEL_OFF;
+static const BOOL OPELogDatabaseErrors = NO;
+static const BOOL OPETraceDatabaseTraceExecution = NO;
+#endif
+
 @implementation OSMParser
 
 @synthesize delegate;
@@ -102,10 +113,10 @@
             }
             
             NSTimeInterval time = [start timeIntervalSinceNow];
-            NSLog(@"Total Time: %f",-1*time);
-            NSLog(@"Node Time: %f - %f",totalNodeTime,totalNodeTime/numNodes);
-            NSLog(@"Way Time: %f - %f",totalWayTime,totalWayTime/numWays);
-            NSLog(@"Relation Time: %f",totalRelationTime);
+            DDLogInfo(@"Total Time: %f",-1*time);
+            DDLogInfo(@"Node Time: %f - %f",totalNodeTime,totalNodeTime/numNodes);
+            DDLogInfo(@"Way Time: %f - %f",totalWayTime,totalWayTime/numWays);
+            DDLogInfo(@"Relation Time: %f",totalRelationTime);
         }];
         
         [endBlockOperation addDependency:nodeBlockOperation];

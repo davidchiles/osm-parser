@@ -8,6 +8,17 @@
 
 #import "OSMParserHandlerDefault.h"
 
+#import "DDLog.h"
+#if DEBUG
+static const int ddLogLevel = LOG_LEVEL_VERBOSE;
+static const BOOL OPELogDatabaseErrors = YES;
+static const BOOL OPETraceDatabaseTraceExecution = YES;
+#else
+static const int ddLogLevel = LOG_LEVEL_OFF;
+static const BOOL OPELogDatabaseErrors = NO;
+static const BOOL OPETraceDatabaseTraceExecution = NO;
+#endif
+
 @interface OSMParserHandlerDefault (privateAPI)
 -(BOOL) checkForWaysFlush;
 -(BOOL) checkForNodesFlush;
@@ -38,23 +49,23 @@
 #pragma mark -
 #pragma mark Parser delegate
 -(void) didStartParsingNodes {
-	NSLog(@"[NOW PARSING NODES]"); 
+	DDLogInfo(@"[NOW PARSING NODES]");
 }
 -(void) didStartParsingWays {
 	[self checkForNodesFlush];
-	NSLog(@"[NOW PARSING WAYS]"); 
+	DDLogInfo(@"[NOW PARSING WAYS]");
 }
 -(void) didStartParsingRelations {
 	[self checkForWaysFlush];
-	NSLog(@"[NOW PARSING RELATIONS]"); 
+	DDLogInfo(@"[NOW PARSING RELATIONS]");
 }
 
 - (void)parsingWillStart {
-    NSLog(@"[PARSING WILL START]");
+    DDLogInfo(@"[PARSING WILL START]");
 }
 
 - (void)parsingDidEnd {
-    NSLog(@"[PARSING DID END");
+    DDLogInfo(@"[PARSING DID END");
 }
 
 -(void) onNodeFound:(Node *)node {
@@ -73,7 +84,7 @@
 -(void) onWayFound:(Way *)way {
 	[waysBuffer addObject:way];
 	if ([way.nodesIds count]==0)
-		NSLog(@"WARNING No Node for WAY %lldi", way.elementID);
+		DDLogWarn(@"WARNING No Node for WAY %lldi", way.elementID);
 	//NSLog(@"Way %lld has nodes : %@", way.elementID, way.nodesIds);
 	waysCounter++;
 	if (waysCounter%(bufferMaxSize/20)==0) {
@@ -88,7 +99,7 @@
 
 -(BOOL) checkForNodesFlush {
 	if ([nodesBuffer count]!=0) {
-		NSLog(@"parsed %lu nodes", (unsigned long)nodesCounter);
+		DDLogInfo(@"parsed %lu nodes", (unsigned long)nodesCounter);
 		[self.outputDao addNodes:nodesBuffer];
 		[nodesBuffer removeAllObjects];
 		return YES;
@@ -99,16 +110,16 @@
 
 -(BOOL) checkForWaysFlush {
 	if ([waysBuffer count]!=0) {
-		NSLog(@"parsed %lu ways", (unsigned long)waysCounter);
-		NSLog(@"now populating corresponding nodes");
+		DDLogInfo(@"parsed %lu ways", (unsigned long)waysCounter);
+		DDLogInfo(@"now populating corresponding nodes");
 		for (int i=0; i<[waysBuffer count]; i++) {
 			Way* w =[waysBuffer objectAtIndex:i];
 			NSArray* n =[self.outputDao getNodesForWay:w];
 			w.nodes=n;
 		}
-		NSLog(@"Nodes populated, now flushing...");
+		DDLogInfo(@"Nodes populated, now flushing...");
 		[self.outputDao addWays:waysBuffer];
-		NSLog(@"Flush !");
+		DDLogInfo(@"Flush !");
 		[waysBuffer removeAllObjects];
 		return YES;
 	}else {
