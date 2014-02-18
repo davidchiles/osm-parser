@@ -58,19 +58,31 @@
         
         BOOL exists = [[NSFileManager defaultManager] fileExistsAtPath:resPath];
         if (exists && override) {
-            [[NSFileManager defaultManager] removeItemAtPath:resPath error:nil];
+            NSError * error = nil;
+            BOOL sucess = [[NSFileManager defaultManager] removeItemAtPath:resPath error:&error];
+            if (!sucess) {
+                DDLogError(@"Error removing file - %@",error);
+            }
         }
-        self.databaseQueue = [FMDatabaseQueue databaseQueueWithPath:self.filePath];
         
         if (!exists || (exists && override)) {
             [self initDB];
         }
+        
         
 
     }
 	   
    	return self;
 	
+}
+
+- (FMDatabaseQueue *)databaseQueue
+{
+    if (!_databaseQueue){
+        _databaseQueue = [FMDatabaseQueue databaseQueueWithPath:self.filePath];
+    }
+    return _databaseQueue;
 }
 
 -(id) initWithFilePath:(NSString*)resPath {
@@ -82,11 +94,29 @@
 }
 
 -(void) initDB {
-	NSString* p = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:@"roadNetworkInit.sql"];
-	//NSLog(@"Path %@", p);
-    [self.databaseQueue inTransaction:^(FMDatabase *db, BOOL *rollback) {
-        [db executeUpdate:p];
-    }];
+    sqlite3 *dbHandle;
+    int ret = sqlite3_open_v2 ([self.filePath cStringUsingEncoding:NSUTF8StringEncoding], &dbHandle, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
+	if (ret != SQLITE_OK) {
+        DDLogError(@"error when opening %@", self.filePath);
+    }
+    else {
+        DDLogInfo(@"OPEN OK");
+    }
+    
+    NSString* p = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:@"roadNetworkInit.sql"];
+	DDLogVerbose(@"Path %@", p);
+	NSString* initScript = [NSString stringWithContentsOfFile:p encoding:NSUTF8StringEncoding error:nil];
+	DDLogVerbose(@"init script %@", initScript);
+	char* errMsg = NULL;
+	const char *sql = [initScript cStringUsingEncoding:NSUTF8StringEncoding];
+	int returnValue = sqlite3_exec(dbHandle, sql, NULL, NULL, &errMsg);
+	if (returnValue!=SQLITE_OK)
+    {
+        NSAssert1(0, @"Error initializing DB. '%s'", sqlite3_errmsg(dbHandle));
+    }
+		
+    
+    close(dbHandle);
     
 }
 
