@@ -38,9 +38,6 @@
 @property (nonatomic,strong) FMDatabaseQueue * databaseQueue;
 
 -(void) initDB;
--(void) addNodeAsGeom:(OSMNode*)node;
--(void) addNodesIDsForWay:(OSMWay*)way;
--(void) updateWayInfoId:(NSInteger)wayInfoId toWaysWithIds:(NSArray*)idsArray;
 
 @end
 
@@ -329,7 +326,12 @@
 	return way;
 }
 
--(void) addWays:(NSArray*)ways {
+- (void)addWay:(OSMWay *)way
+{
+    [self addWays:@[way]];
+}
+
+- (void) addWays:(NSArray*)ways {
     
     __block NSMutableArray * newWays = [NSMutableArray array];
     __block NSMutableArray * updateWays = [NSMutableArray array];
@@ -476,10 +478,7 @@
         else{
             [self.delegate didFinishSavingNewElements:@[rel] updatedElements:nil];
         }
-        
     }
-	
-    
 }
 
 +(NSString *) sqliteInsertOrReplaceRelationString:(OSMRelation *)relation
@@ -502,6 +501,13 @@
     }];
     
     return membersIds;
+}
+
+-(NSDictionary *)tagsForWay:(int64_t)wayId
+{
+    OSMWay * way = [[OSMWay alloc] init];
+    way.elementID = wayId;
+    return [self getTagsForElement:way];
 }
 
 -(OSMRelation*) getRelationWithID:(int64_t) relationid {

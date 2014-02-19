@@ -31,46 +31,39 @@
 //@property (nonatomic,strong)FMDatabase *database;
 
 /** Inits a new OSMDatabaseManager */
--(id) initWithFilePath:(NSString*)filePath;
+- (id)initWithFilePath:(NSString*)filePath;
 
--(id) initWithFilePath:(NSString*)filePath overrideIfExists:(BOOL)override;
+- (id)initWithFilePath:(NSString*)filePath overrideIfExists:(BOOL)override;
 
 /** Stores the given nodes in one single transaction. */
--(void) addNodes:(NSArray*)nodes;
+- (void)addNodes:(NSArray*)nodes;
 
 /** Returns a node from its nodeid. */
--(OSMNode*) getNodeFromID:(int64_t)nodeId withTags:(BOOL)withTags;
+- (OSMNode*)getNodeFromID:(int64_t)nodeId withTags:(BOOL)withTags;
 
--(NSArray*) getNodesForWay:(OSMWay*)way;
+- (NSArray*)getNodesForWay:(OSMWay*)way;
 
--(OSMWay*) getWayWithID:(int64_t)wayid;
+- (OSMWay*)getWayWithID:(int64_t)wayid;
 
--(void) addWays:(NSArray*)ways;
+- (void)addWays:(NSArray*)ways;
 
--(void) deleteWaysWithIds:(NSArray*)waysIds;
+- (void)deleteWaysWithIds:(NSArray*)waysIds;
 
-//-(void) addWay:(Way*)way;
+- (void)addWay:(OSMWay *)way;
 
--(void) addRelation:(OSMRelation *)rel;
+- (void)addRelation:(OSMRelation *)rel;
 
--(NSArray*) getMotorwaysRelationsIds;
+- (OSMRelation*)getRelationWithID:(int64_t)relationid;
 
--(OSMRelation*) getRelationWithID:(int64_t) relationid;
+- (NSDictionary*)getTagsForElement:(OSMElement *)element;
 
-//-(void) associateNetworkToRoadsDefinitions;
+- (NSDictionary*) tagsForWay:(int64_t) wayId;
 
--(NSDictionary*) getTagsForElement:(OSMElement *)element;
-
-
-
-//-(NSDictionary*) tagsForWay:(int64_t) wayId;
-
--(NSArray*) getWaysIdsMembersForRelationWithId:(int64_t) relationId;
+- (NSArray*)getWaysIdsMembersForRelationWithId:(int64_t) relationId;
 
 
-+(NSArray *)sqliteInsertTagsString:(OSMElement *)element;
-+(NSString *)sqliteInsertOrReplaceString:(OSMElement*)element;
-
-+(NSString *)tableName:(OSMElement *)element;
++ (NSArray *)sqliteInsertTagsString:(OSMElement *)element;
++ (NSString *)sqliteInsertOrReplaceString:(OSMElement*)element;
++ (NSString *)tableName:(OSMElement *)element;
 
 @end
