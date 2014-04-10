@@ -17,35 +17,22 @@
  The flush to the DB is done once the limit number of parsed objects has been reached
  (see bufferMaxSize) to limit the number of db transactions and improve db access time. 
  */
-@interface OSMParserHandlerDefault : NSObject <OSMParserDelegate> {
-	/** Default is 30000: 30000 nodes should be parsed before flushing to the DB.
-	 This number is divided by 20 to get the limit number of ways before doing the flush for ways. */
-	NSUInteger bufferMaxSize;
-	/** The total number of parsed nodes. */
-	NSUInteger nodesCounter;
-	/** The total number of parsed ways. */
-	NSUInteger waysCounter;
-	/** Nodes memory storage before DB flush in one single transaction. */
-	NSMutableArray* nodesBuffer;
-	/** Ways memory storage before DB flush in one single transaction. */
-	NSMutableArray* waysBuffer;
-	BOOL ignoreNodes;
-    
-    BOOL optimizeOnFinished;
-}
-@property(readwrite) BOOL ignoreNodes;
+@interface OSMParserHandlerDefault : NSObject <OSMParserDelegate>
+
+@property(nonatomic) BOOL ignoreNodes;
+
 /** Configurable number of objects to be put in memory before being flushed to the DB. 
   Default is 30 000 for nodes, and 30 000/20 for ways. */ 
-@property(readwrite) NSUInteger bufferMaxSize;
+@property(nonatomic) NSUInteger bufferMaxSize;
 
-@property(readwrite) BOOL optimizeOnFinished;
+@property(nonatomic) BOOL optimizeOnFinished;
 
-@property (nonatomic,strong) OSMDatabaseManager * outputDao;
+@property(nonatomic, strong) OSMDatabaseManager * databaseManager;
 
 /**
  Creates a new OSMParserHandlerDefault that will create a spatialite DB at the given output path
  */
--(id) initWithOutputFilePath:(NSString*)output;
+- (id)initWithDatabaseQueue:(FMDatabaseQueue *)databaseQueue;
 
 /**
  Creates a new OSMParserHandlerDefault that will create a spatialite DB at the given output path, 

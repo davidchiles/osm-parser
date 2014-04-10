@@ -28,4 +28,6 @@
 -(NSString *)tableName;
 -(NSString *)tagsTableName;
 
++ (NSDateFormatter *)defaultDateFormatter;
+
 @end

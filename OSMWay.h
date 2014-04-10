@@ -11,10 +11,18 @@
 
 #import "OSMElement.h"
 
+@class OSMNode;
+
 /**
  This class describes a Way as defined in a .osm XML file. 
  */
 @interface OSMWay : OSMElement
+
+@property (nonatomic, strong) NSArray *nodes;
+@property (nonatomic, strong, readonly) NSArray *nodesIds;
+
+- (void)addNode:(OSMNode *)node;
+- (void)addNodeId:(int64_t)nodeId;
 
 - (int64_t)getCommonNodeIdWith:(OSMWay*)way;
 
@@ -30,9 +38,6 @@
 /** Returns the nodeid of the last node of this way. */
 - (int64_t)lastNodeId;
 
-@property (nonatomic, strong) NSMutableArray *nodesIds;
-@property (nonatomic, strong) NSArray *nodes;
 
-@property (nonatomic) NSUInteger length;
 
 @end

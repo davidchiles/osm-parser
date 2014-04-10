@@ -14,6 +14,7 @@
 @class OSMNode;
 @class OSMWay;
 @class OSMRelation;
+@class FMDatabaseQueue;
 
 @protocol OSMDatabaseManagerDelegate <NSObject>
 
@@ -33,6 +34,8 @@
 /** Inits a new OSMDatabaseManager */
 - (id)initWithFilePath:(NSString*)filePath;
 
+- (id)initWithDatabaseQueueu:(FMDatabaseQueue *)databaseQueue;
+
 - (id)initWithFilePath:(NSString*)filePath overrideIfExists:(BOOL)override;
 
 /** Stores the given nodes in one single transaction. */
@@ -45,21 +48,21 @@
 
 - (OSMWay*)getWayWithID:(int64_t)wayid;
 
+
+- (void)addWay:(OSMWay *)way;
+- (void)addRelation:(OSMRelation *)rel;
+
 - (void)addWays:(NSArray*)ways;
 
 - (void)deleteWaysWithIds:(NSArray*)waysIds;
 
-- (void)addWay:(OSMWay *)way;
-
-- (void)addRelation:(OSMRelation *)rel;
 
 - (OSMRelation*)getRelationWithID:(int64_t)relationid;
 
 - (NSDictionary*)getTagsForElement:(OSMElement *)element;
+- (NSDictionary*)tagsForWay:(int64_t)wayId;
 
-- (NSDictionary*) tagsForWay:(int64_t) wayId;
-
-- (NSArray*)getWaysIdsMembersForRelationWithId:(int64_t) relationId;
+- (NSArray*)getWaysIdsMembersForRelationWithId:(int64_t)relationId;
 
 
 + (NSArray *)sqliteInsertTagsString:(OSMElement *)element;

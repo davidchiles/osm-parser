@@ -51,7 +51,7 @@
 
 @interface OSMParser : NSObject
 
-@property (readwrite, retain) id <OSMParserDelegate> delegate;
+@property (nonatomic, strong) id <OSMParserDelegate> delegate;
 
 - (id)initWithOSMFile:(NSString*)osmFilePath;
 

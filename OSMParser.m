@@ -32,8 +32,6 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
 
 @implementation OSMParser
 
-@synthesize delegate;
-
 -(id)init {
     if (self = [super init]) {
         self.tagOperationQueue = [[NSOperationQueue alloc] init];
@@ -61,7 +59,7 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
 
 -(void) parseWithCompletionBlock:(void (^)(void))completionBlock {
     if ([self.delegate respondsToSelector:@selector(parsingWillStart)]){
-        [delegate parsingWillStart];
+        [self.delegate parsingWillStart];
     }
     
     NSDate * start = [NSDate date];
@@ -80,38 +78,49 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
         __block NSDate * nodeStart = nil;
         NSBlockOperation * nodeBlockOperation = [NSBlockOperation blockOperationWithBlock:^{
             if ([self.delegate respondsToSelector:@selector(didStartParsingNodes)]) {
-                [delegate didStartParsingNodes];
+                [self.delegate didStartParsingNodes];
             }
             nodeStart = [NSDate date];
             numNodes = [self findAllNodes];
         }];
-        [nodeBlockOperation setCompletionBlock:^{
-            totalNodeTime -= [nodeStart timeIntervalSinceNow];
-        }];
+        
+        if (ddLogLevel == LOG_LEVEL_VERBOSE) {
+            [nodeBlockOperation setCompletionBlock:^{
+                totalNodeTime -= [nodeStart timeIntervalSinceNow];
+            }];
+        }
+        
         
         __block NSDate * wayStart = nil;
         NSBlockOperation * wayBlockOperation = [NSBlockOperation blockOperationWithBlock:^{
             if ([self.delegate respondsToSelector:@selector(didStartParsingWays)]) {
-                [delegate didStartParsingWays];
+                [self.delegate didStartParsingWays];
             }
             wayStart = [NSDate date];
             numWays = [self findAllWays];
         }];
-        [wayBlockOperation setCompletionBlock:^{
-            totalWayTime -= [wayStart timeIntervalSinceNow];
-        }];
+        
+        if (ddLogLevel == LOG_LEVEL_VERBOSE) {
+            [wayBlockOperation setCompletionBlock:^{
+                totalWayTime -= [wayStart timeIntervalSinceNow];
+            }];
+        }
+        
         
         __block NSDate * relationStart = nil;
         NSBlockOperation * relationBlockOperation = [NSBlockOperation blockOperationWithBlock:^{
             if ([self.delegate respondsToSelector:@selector(didStartParsingRelations)]) {
-                [delegate didStartParsingRelations];
+                [self.delegate didStartParsingRelations];
             }
             relationStart = [NSDate date];
             numWays = [self findAllRelations];
         }];
-        [relationBlockOperation setCompletionBlock:^{
-            totalRelationTime -= [relationStart timeIntervalSinceNow];
-        }];
+        
+        if (ddLogLevel == LOG_LEVEL_VERBOSE) {
+            [relationBlockOperation setCompletionBlock:^{
+                totalRelationTime -= [relationStart timeIntervalSinceNow];
+            }];
+        }
         
         
         NSBlockOperation * endBlockOperation = [NSBlockOperation blockOperationWithBlock:^{
@@ -159,7 +168,7 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
         
         NSBlockOperation * tagBlockOperation = [NSBlockOperation blockOperationWithBlock:^{
             [self findTagsForElement:node withXML:nodeXML];
-            [delegate onNodeFound:node];
+            [self.delegate onNodeFound:node];
         }];
         
         [self.tagOperationQueue addOperation:tagBlockOperation];
@@ -189,7 +198,7 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
         
         NSBlockOperation * nodeBlockOperation = [NSBlockOperation blockOperationWithBlock:^{
             [self findNodes:wayXML withWay:way];
-            [delegate onWayFound:way];
+            [self.delegate onWayFound:way];
         }];
         
         [nodeBlockOperation addDependency:tagBlockOperation];
@@ -224,7 +233,7 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
         
         NSBlockOperation * nodeBlockOperation = [NSBlockOperation blockOperationWithBlock:^{
             [self findMemebers:relationXML withRelation:relation];
-            [delegate onRelationFound:relation];
+            [self.delegate onRelationFound:relation];
         }];
         
         [nodeBlockOperation addDependency:tagBlockOperation];
@@ -268,8 +277,7 @@ static const BOOL OPETraceDatabaseTraceExecution = NO;
     
     while (nd) {
         int64_t nodeId = [[TBXML valueOfAttributeNamed:@"ref" forElement:nd] longLongValue];
-		NSNumber* refAsNumber = [NSNumber numberWithLongLong:nodeId];
-		[way.nodesIds addObject:refAsNumber];
+        [way addNodeId:nodeId];
         nd = [TBXML nextSiblingNamed:@"nd" searchFromElement:nd];
 
     }

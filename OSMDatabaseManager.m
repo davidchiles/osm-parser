@@ -48,6 +48,14 @@
 	//[self createGeometryForWayId:1];
 }
 
+- (id)initWithDatabaseQueueu:(FMDatabaseQueue *)databaseQueue
+{
+    if(self = [self initWithFilePath:databaseQueue.path]) {
+        self.databaseQueue = databaseQueue;
+    }
+    return self;
+}
+
 -(id) initWithFilePath:(NSString*)resPath overrideIfExists:(BOOL)override {
 	if (self=[super init])
     {
@@ -65,13 +73,9 @@
         if (!exists || (exists && override)) {
             [self initDB];
         }
-        
-        
-
     }
 	   
    	return self;
-	
 }
 
 - (FMDatabaseQueue *)databaseQueue
@@ -130,8 +134,8 @@
     __block NSMutableArray * newNodes = [NSMutableArray array];
     __block NSMutableArray * updateNodes = [NSMutableArray array];
     
-    [self.databaseQueue inDatabase:^(FMDatabase *db) {
-        __block BOOL success = [db beginTransaction];
+    [self.databaseQueue inTransaction:^(FMDatabase *db, BOOL *rollback) {
+        
         [nodes enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
             OSMNode * node = obj;
             BOOL shouldUpdate = YES;
@@ -145,7 +149,7 @@
             [set close];
             
             if (shouldUpdate) {
-                success = [db executeUpdate:[OSMDatabaseManager sqliteInsertOrReplaceString:node]];
+                BOOL success = [db executeUpdate:[OSMDatabaseManager sqliteInsertOrReplaceString:node]];
                 if (success) {
                     [db executeUpdate:@"DELETE FROM nodes_tags WHERE node_id = ?",[NSNumber numberWithLongLong:node.elementID]];
                     for(NSString * osmKey in node.tags)
@@ -162,8 +166,6 @@
                 }
             }
         }];
-        
-        success = [db commit];
     }];
     
     if ([self.delegate respondsToSelector:@selector(didFinishSavingNewElements:updatedElements:)]) {
@@ -317,7 +319,7 @@
         
         while ([resultSet next]) {
             int64_t nodeId = [resultSet longLongIntForColumnIndex:0];
-            [way.nodesIds addObject:[NSNumber numberWithLongLong:nodeId]];
+            [way addNodeId:nodeId];
         }
         [resultSet close];
         
@@ -331,18 +333,16 @@
     [self addWays:@[way]];
 }
 
-- (void) addWays:(NSArray*)ways {
+- (void)addWays:(NSArray*)ways {
     
     __block NSMutableArray * newWays = [NSMutableArray array];
     __block NSMutableArray * updateWays = [NSMutableArray array];
-    [self.databaseQueue inDatabase:^(FMDatabase *db) {
+    [self.databaseQueue inTransaction:^(FMDatabase *db, BOOL *rollback) {
         db.logsErrors = OPELogDatabaseErrors;
         db.traceExecution = OPETraceDatabaseTraceExecution;
-        BOOL success = NO;
-        success = [db beginTransaction];
+        __block BOOL success = NO;
        
-        for (int i=0; i<[ways count];i++) {
-            OSMWay * way = ways[i];
+        for (OSMWay * way in ways) {
             BOOL shouldUpdate = YES;
             BOOL alreadyExists = NO;
             FMResultSet * set = [db executeQuery:[self sqliteCurrentVersionString:way]];
@@ -358,24 +358,17 @@
                 if (success) {
                     [db executeUpdate:@"DELETE FROM ways_nodes WHERE way_id = ?",[NSNumber numberWithLongLong:way.elementID]];
                     [db executeUpdate:@"DELETE FROM ways_tags WHERE way_id = ?",[NSNumber numberWithLongLong:way.elementID]];
-                    NSArray * sql = [OSMDatabaseManager sqliteInsertOrReplaceWayNodesString:way];
+                    //NSArray * sql = [OSMDatabaseManager sqliteInsertOrReplaceWayNodesString:way];
                     
-                    for (NSString * sqlString in sql)
-                    {
-                        if ([sqlString length]) {
-                            success = [db executeUpdate:sqlString];
-                        }
-                        else
-                        {
-                            DDLogError(@"ERROR NO Way Nodes");
-                        }
-                    }
-                    
+                    [way.nodesIds enumerateObjectsUsingBlock:^(NSNumber *nodeId, NSUInteger idx, BOOL *stop) {
+                        success = [db executeUpdate:@"INSERT OR REPLACE INTO ways_nodes(way_id,node_id,local_order) values(?,?,?)",[NSNumber numberWithLongLong:way.elementID],nodeId,[NSNumber numberWithUnsignedInteger:idx]];
+                        
+                    }];
                     
                     
                     for(NSString * osmKey in way.tags)
                     {
-                        [db executeUpdate:@"insert or replace into ways_tags(way_id,key,value) values(?,?,?)",[NSNumber numberWithLongLong:way.elementID],osmKey,way.tags[osmKey]];
+                        [db executeUpdate:@"INSERT OR REPLACE INTO ways_tags(way_id,key,value) values(?,?,?)",[NSNumber numberWithLongLong:way.elementID],osmKey,way.tags[osmKey]];
                     }
                     
                     if (alreadyExists) {
@@ -388,8 +381,6 @@
                 }
             }
         }
-        
-        success = [db commit];
     }];
 	
     if ([self.delegate respondsToSelector:@selector(didFinishSavingNewElements:updatedElements:)]) {
@@ -410,20 +401,7 @@
  */
 +(NSString *)sqliteInsertOrReplaceWayString:(OSMWay*)way
 {
-    return [NSString stringWithFormat:@"insert or replace into ways(id,user,uid,changeset,version,timestamp) values (%lld,\'%@\',%lld,%lld,%lld,\'%@\')",way.elementID,way.user,way.uid,way.changeset,way.version,[way formattedDate]];
-}
-
-+(NSArray *) sqliteInsertOrReplaceWayNodesString:(OSMWay*)way {
-    NSMutableArray * sqlStringArray =[NSMutableArray array];
-    if ([way.nodes count]) {
-        for (int i=0; i<[way.nodesIds count]; i++) {
-            int64_t nodeid= [(NSNumber*)[way.nodesIds objectAtIndex:i] longLongValue];
-            NSString * sqlString = [NSMutableString stringWithFormat:@"insert or replace into ways_nodes(way_id,node_id,local_order) values(%lld,%lld,%d)",way.elementID,nodeid,i];
-            [sqlStringArray addObject:sqlString];
-            
-        }
-    }
-    return sqlStringArray;
+    return [NSString stringWithFormat:@"INSERT OR REPLACE INTO ways(id,user,uid,changeset,version,timestamp) values (%lld,\'%@\',%lld,%lld,%lld,\'%@\')",way.elementID,way.user,way.uid,way.changeset,way.version,[way formattedDate]];
 }
 
 #pragma mark -
@@ -432,10 +410,9 @@
 -(void) addRelation:(OSMRelation*) rel {
 	
 	__block BOOL alreadyExists = NO;
-    [self.databaseQueue inDatabase:^(FMDatabase *db) {
+    [self.databaseQueue inTransaction:^(FMDatabase *db, BOOL *rollback) {
         db.logsErrors = OPELogDatabaseErrors;
         db.traceExecution = OPETraceDatabaseTraceExecution;
-        [db beginTransaction];
         
         BOOL shouldUpdate = YES;
         
@@ -467,7 +444,6 @@
                 }
             }
         }
-        [db commit];
     }];
     
     
@@ -515,7 +491,7 @@
 	relation.elementID=relationid;
     
     [self.databaseQueue inDatabase:^(FMDatabase *db) {
-        FMResultSet * resultSet = [db executeQuery:@"SELECT * from relations_members where relationid=? ORDER BY rowid",relationid];
+        FMResultSet * resultSet = [db executeQuery:@"SELECT * FROM relations_members WHERE relationid=? ORDER BY rowid",relationid];
         
         while ([resultSet next]) {
             OSMMember *member = [[OSMMember alloc] init];

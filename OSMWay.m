@@ -7,14 +7,46 @@
 //
 
 #import "OSMWay.h"
+#import "OSMNode.h"
+
+@interface OSMWay ()
+
+@property (nonatomic, strong) NSArray *nodesIds;
+
+
+@end
 
 @implementation OSMWay
 
--(id) init {
-	if (self!=[super init])
-		return nil;
-	self.nodesIds = [[NSMutableArray alloc] init];
-	return self;
+- (void)addNode:(OSMNode *)node
+{
+    if(!self.nodes) {
+        self.nodes = @[node];
+    }
+    else {
+        self.nodes = [self.nodes arrayByAddingObject:node];
+    }
+    
+    [self addNodeId:node.elementID];
+}
+- (void)addNodeId:(int64_t)nodeId
+{
+    if(!self.nodesIds) {
+        self.nodesIds = @[[NSNumber numberWithLongLong:nodeId]];
+    }
+    else {
+        self.nodesIds = [self.nodesIds arrayByAddingObject:[NSNumber numberWithLongLong:nodeId]];
+    }
+}
+
+- (void)setNodes:(NSArray *)nodes {
+    _nodes = nodes;
+    self.nodesIds = nil;
+    
+    [_nodes enumerateObjectsUsingBlock:^(OSMNode *node, NSUInteger idx, BOOL *stop) {
+        [self addNodeId:node.elementID];
+    }];
+    
 }
 
 -(BOOL) isFirstNodeId:(int64_t)nodeId {
